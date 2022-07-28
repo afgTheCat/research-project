@@ -16,6 +16,7 @@ def leaky_model(_t, y, *arg):
 
 
 def main():
+    # initial value, time
     res = [(-70.0, 0.0)]
     r = ode(leaky_model).set_integrator("zvode").set_initial_value(-70.0, 0.0)
     t1 = 10
