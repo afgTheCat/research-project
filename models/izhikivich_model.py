@@ -25,15 +25,11 @@ def izhikivitch_model(a=0.02, b=0.2, c=-65, d=8):
     I[200:1500] = 10
 
     for t in range(1, len(time)):
-        # if we still didnt reach spike potential
         if V[t - 1] < spike_value:
-            # ODE for membrane potential
             dV = (0.04 * V[t - 1] + 5) * V[t - 1] + 140 - u[t - 1]
             V[t] = V[t - 1] + (dV + I[t - 1]) * dt
-            # ODE for recovery variable
             du = a * (b * V[t - 1] - u[t - 1])
             u[t] = u[t - 1] + dt * du
-        # spike reached!
         else:
             V[t - 1] = spike_value  # set to spike value
             V[t] = c  # reset membrane voltage
