@@ -1,6 +1,7 @@
 from scipy import sparse
 import numpy as np
 import scipy.io
+import matplotlib.pyplot as plt
 
 
 class Reservoire:
@@ -8,26 +9,24 @@ class Reservoire:
         self,
         n_internal_units=100,
         connectivity=1,
-        coupling_coefficient=0.3,
-        reset_val=-65,
         a=0.02,
         b=0.2,
+        reset_val=-65,
         d=8,
         dt=0.5,
     ) -> None:
         self.n_internal_units = n_internal_units
         self.connectivity = connectivity
-        self.coupling_coefficient = coupling_coefficient
-        self.reset_val = reset_val
         self.a = a
         self.b = b
+        self.reset_val = reset_val
         self.d = d
         self.dt = dt
         self._initialize_internal_weights()
-        self._initialize_connection()
-        self.internal_v = [[] for _ in range(n_internal_units)]
-        self.internal_u = [[] for _ in range(n_internal_units)]
         self.spike_value = 30
+
+        # Input weights depend on input size: they are set when data is provided
+        self._input_weights = None
 
     def _initialize_internal_weights(self):
         n_internal_units = self.n_internal_units
@@ -37,77 +36,79 @@ class Reservoire:
         ).todense()
         self.internal_weights = internal_weights
 
-    def _initialize_connection(self):
-        def single_neuron_connection(i):
-            return sum(
-                self.internal_weights[j, i]
-                for j in range(self.n_internal_units)
-                if i != j
-            )
+    def sim_neuron(self, u, v, i):
+        if v < self.spike_value:
+            dv = 0.04 * v**2 + 5 * v + 140 - u
+            du = self.a * (self.b + v - u)
+            v_new = v + (dv + i) * self.dt
+            u_new = u + self.dt * du
+            return (v_new, u_new)
+        else:
+            v_new = self.reset_val
+            u_new = u + self.d
+            return (v_new, u_new)
 
-        self.connections = [
-            single_neuron_connection(i) for i in range(self.n_internal_units)
+    def simulate_network(self, previous_state, input_matrix):
+        N, T = previous_state.shape
+        new_state_matrix = np.zeros((N, T), dtype=float)
+        for n in range(N):
+            for neuron in range(self.n_internal_units):
+                v = previous_state[n][neuron]
+                u = previous_state[n][self.n_internal_units + neuron]
+                input_val = input_matrix[n][neuron]
+
+                v_new, u_new = self.sim_neuron(u, v, input_val)
+                new_state_matrix[n][neuron] = v_new
+                new_state_matrix[n][self.n_internal_units + neuron] = u_new
+
+        return new_state_matrix
+
+    def get_states(self, X, input_weight="eq"):
+        N, T, V = X.shape
+
+        if self._input_weights is None and input_weight == "binom":
+            self._input_weights = (
+                2.0 * np.random.binomial(1, 0.5, [self.n_internal_units, V]) - 1.0
+            )
+        elif self._input_weights is None:
+            self._input_weights = np.ones((self.n_internal_units, V))
+
+        initial_state = [
+            *[-70 for _ in range(self.n_internal_units)],
+            *[-14 for _ in range(self.n_internal_units)],
         ]
 
-    def simulate_izhikevich_one_step(self, neuron, t, I):
-        v = self.internal_v[neuron]
-        u = self.internal_u[neuron]
-        if v[-1] < self.spike_value:
-            dV = (0.04 * v[-1] + 5) * v[-1] + 140 - u[-1]
-            v.append(v[-1] + (dV + I) * self.dt)
-            du = self.a * (self.b * v[-1] - u[-1])
-            u.append(u[t - 1] + self.dt * du)
-        else:
-            v[-1] = self.spike_value
-            v.append(self.reset_val)
+        # State can be described with
+        previous_state = np.array([initial_state for _ in range(N)])
+        state_matrix = np.empty((N, T, 2 * self.n_internal_units), dtype=float)
 
-    # spike for all the things
-    def simulate_izhikevich_network(self, time, state_matrix, I):
-        # T = 1000  # total simulation length [ms]
-        time = np.arange(0, time + self.dt, self.dt)  # step values [ms]
-
-        for neuron in range(n_internal_units):
-            print("lll")
-
-        # for t in range(1, len(time)):
-        #     if V[t - 1] < self.spike_value:
-        #         dV = (0.04 * V[t - 1] + 5) * V[t - 1] + 140 - u[t - 1]
-        #         V[t] = V[t - 1] + (dV + I[t - 1]) * dt
-        #         du = self.a * (self.b * V[t - 1] - u[t - 1])
-        #         u[t] = u[t - 1] + dt * du
-        #     else:
-        #         V[t - 1] = self.spike_value  # set to spike value
-        #         V[t] = self.reset_val  # reset membrane voltage
-        #         u[t] = u[t - 1] + self.d  # reset recovery
-
-    def _compute_state_matrix(
-        self,
-        X,
-    ):
-        N, T, _ = X.shape
-        # Storage
-        state_matrix = np.empty((N, T, self.n_internal_units), dtype=float)
         for t in range(T):
-            current_input = X[:, t, :]
-            print(current_input)
+            current_input = X[:, t, :]  # [N, V]
+            input_matrix = self._input_weights.dot(current_input.T).T
+            previous_state = self.simulate_network(previous_state, input_matrix)
+            state_matrix[:, t, :] = previous_state
+
         return state_matrix
 
-    def get_states(self, X):
-        # Number of variables, time
-        N, T, _ = X.shape
-        for t in range(T):
-            current_input = X[:, t, :]
+
+def plot_n_th(state_matrix, n_th, neuron, time):
+    V = state_matrix[n_th][:, neuron]
+    fig1 = plt.figure()
+    plt.plot(time, V, label="Membrane Potential")[0]
+    plt.show()
 
 
 if __name__ == "__main__":
     data = scipy.io.loadmat("../data/JpVow.mat")
-    # shape is [N: number of series,T: length of the max series, V: number of variables]
 
-    Xtr = data["X"]  # shape is [N,T,V]
-    Ytr = data["Y"]  # shape is [N,1]
-    Xte = data["Xte"]
-    Yte = data["Yte"]
-    res = Reservoire(n_internal_units=4)
+    # Xtr = data["X"]  # shape is [N,T,V]
+    n_internal_units = 2
+    steps = 1000
+    dt = 0.5
+    time_points = 1000
+    Xtr = 10 * np.ones((1, time_points, 1))
+    reservoire = Reservoire(n_internal_units=n_internal_units, dt=dt)
+    state_matrix = reservoire.get_states(Xtr)
 
-    # res.get_states()
-    print(res)
+    time = np.arange(0, time_points * dt, dt)  # step values [ms]
+    plot_n_th(state_matrix, 0, 0, time)
