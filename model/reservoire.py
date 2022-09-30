@@ -43,6 +43,7 @@ class Reservoire:
             self.internal_weights = internal_weights
             print(self.internal_weights)
 
+    # TODO: maybe sim neuron should be reconsideered
     def sim_neuron(self, u, v, i, w):
         if v < self.spike_value:
             dv = 0.04 * v**2 + 5 * v + 140 - u + w
@@ -95,6 +96,7 @@ class Reservoire:
             self._input_weights = (
                 2.0 * np.random.binomial(1, 0.5, [self.n_internal_units, V]) - 1.0
             )
+
         elif self._input_weights is None:
             self._input_weights = np.ones((self.n_internal_units, V))
 
