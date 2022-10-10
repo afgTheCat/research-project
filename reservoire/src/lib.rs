@@ -1,10 +1,10 @@
 #![feature(generic_const_exprs)]
 
 use either::Either;
-use nalgebra::{SMatrix, Vector};
+use nalgebra::SMatrix;
 use ode_solvers::{Dopri5, System};
 use rand::{distributions::Bernoulli, prelude::Distribution, Rng};
-use rand_distr::{num_traits::Pow, Normal};
+use rand_distr::Normal;
 use std::{
     fs::File,
     io::{BufWriter, Write},
@@ -34,6 +34,7 @@ pub struct IzikevichNetwork<const N: usize> {
     connectivity_matrix: SMatrix<f64, N, N>,
 }
 
+#[derive(Debug, Clone)]
 pub enum NetworkInitialization {
     NoRandomWeight {
         membrane_potential: f64,
@@ -130,8 +131,8 @@ pub struct IzikevichModel<const N: usize> {
     c: f64,
     d: f64,
     spike_value: f64,
-    // network: IzikevichNetwork<N>,
     connectivity_matrix: SMatrix<f64, N, N>,
+    izikevich_initialization: NetworkInitialization,
 }
 
 impl<const N: usize> IzikevichModel<N> {
@@ -141,12 +142,9 @@ impl<const N: usize> IzikevichModel<N> {
         c: f64,
         d: f64,
         spike_value: f64,
-        // network_initialization: Either<[IzikevichNeuron; N], NetworkInitialization>,
-        // connectivity_initialization: Either<ConnectivityGraphType, SMatrix<f64, N, N>>,
         connectivity_graph: Either<ConnectivityGraphType, SMatrix<f64, N, N>>,
+        izikevich_initialization: NetworkInitialization,
     ) -> Self {
-        // let network = IzikevichNetwork::new(network_initialization, connectivity_initialization);
-
         let connectivity_matrix = match connectivity_graph {
             Either::Left(connectivity_graph_type) => create_random_graph(connectivity_graph_type),
             Either::Right(connectivity_matrix) => connectivity_matrix,
@@ -157,7 +155,8 @@ impl<const N: usize> IzikevichModel<N> {
             c,
             d,
             spike_value,
-            connectivity_matrix, // network,
+            connectivity_matrix,
+            izikevich_initialization,
         }
     }
 
@@ -211,9 +210,10 @@ impl<const N: usize> System<IzikevichModelState<{ 2 * N }>> for IzikevichModel<N
         let mut du_slice = dy.fixed_slice_mut::<N, 1>(N, 0);
         du_slice.set_column(0, &new_u_slice);
 
-        // TODO: maybe we can do this better?
         for i in 0..N {
-            // self.connectivity_graph.row(i)
+            let v_i = y[i];
+            let w = self.connectivity_matrix.fixed_slice::<1, N>(i, 0) * v_slice.add_scalar(-v_i);
+            dy[i] += w[(0, 0)];
         }
     }
 
@@ -255,8 +255,8 @@ pub fn save<const N: usize>(
 
 pub fn integrate_until_time<const N: usize>(
     t_last: f64,
-    // network_initialization: Either<[IzikevichNeuron; N], NetworkInitialization>,
     connectivity_graph: Either<ConnectivityGraphType, SMatrix<f64, N, N>>,
+    network_initialization: NetworkInitialization,
 ) where
     [f64; 2 * N]:,
 {
@@ -266,11 +266,11 @@ pub fn integrate_until_time<const N: usize>(
         -65.0,
         8.0,
         35.0,
-        // network_initialization,
         connectivity_graph,
+        network_initialization,
     );
     let mut t = 0.0;
-    let dt = 0.005;
+    let dt = 0.05;
     let mut times: Vec<f64> = vec![];
     let mut states: Vec<IzikevichModelState<{ 2 * N }>> = vec![];
 
@@ -311,26 +311,19 @@ pub fn integrate_until_time<const N: usize>(
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        integrate_until_time, ConnectivityGraphType, IzikevichNeuron, NetworkInitialization,
-    };
+    use crate::{integrate_until_time, ConnectivityGraphType, NetworkInitialization};
     use either::Either;
 
     #[test]
     fn test_single_neuron() {
         let _ = env_logger::try_init();
-        const N: usize = 1;
-        let network_initialization: Either<[IzikevichNeuron; N], NetworkInitialization> =
-            Either::Right(NetworkInitialization::NoRandomWeight {
-                membrane_potential: -65.0,
-                recovery_variable: -14.0,
-            });
+        const N: usize = 10;
+        let network_initialization = NetworkInitialization::NoRandomWeight {
+            membrane_potential: -65.0,
+            recovery_variable: -14.0,
+        };
         let connectivity_graph = Either::Left(ConnectivityGraphType::Erdos { connectivity: 1.0 });
-        integrate_until_time::<N>(
-            1000.0,
-            // network_initialization,
-            connectivity_graph,
-        );
+        integrate_until_time::<N>(1000.0, connectivity_graph, network_initialization);
     }
 
     #[test]

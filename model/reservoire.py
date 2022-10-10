@@ -130,7 +130,7 @@ if __name__ == "__main__":
     data = scipy.io.loadmat("../data/JpVow.mat")
 
     # Xtr = data["X"]  # shape is [N,T,V]
-    n_internal_units = 2
+    n_internal_units = 20
     steps = 1000
     dt = 0.5
     time_points = 1000
