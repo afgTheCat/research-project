@@ -100,6 +100,7 @@ class Reservoire:
         elif self._input_weights is None:
             self._input_weights = np.ones((self.n_internal_units, V))
 
+        # initial state
         initial_state = [
             *[-70 + random.uniform(-10, 10) for _ in range(self.n_internal_units)],
             *[-14 + random.uniform(-3, 3) for _ in range(self.n_internal_units)],
