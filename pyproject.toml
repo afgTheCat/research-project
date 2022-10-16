@@ -9,5 +9,5 @@ classifiers = []
 
 [tool.maturin]
 manifest-path = "crates/reservoire-extensions/Cargo.toml"
-python-source = "model"
+python-source = "python"
 
