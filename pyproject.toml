@@ -8,6 +8,6 @@ requires-python = ">=3.7"
 classifiers = []
 
 [tool.maturin]
-manifest-path = "reservoire/Cargo.toml"
+manifest-path = "crates/reservoire-extensions/Cargo.toml"
 python-source = "model"
 

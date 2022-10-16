@@ -1,14 +1,9 @@
 use either::Either;
-use nalgebra::{Const, DMatrix, DVector, Dynamic, MatrixSlice, SMatrix};
+use nalgebra::{DMatrix, DVector};
 use ode_solvers::{Dopri5, System};
 use rand::{distributions::Bernoulli, prelude::Distribution, Rng};
 use rand_distr::Normal;
-use std::{
-    fs::File,
-    io::{repeat, BufWriter, Read, Write},
-    iter::repeat_with,
-    path::Path,
-};
+use std::iter::repeat_with;
 
 #[derive(Debug, Clone)]
 pub enum NetworkInitialization {
@@ -88,7 +83,7 @@ impl IzikevichModel {
     }
 
     // TODO: this should be a function of time
-    fn current(&self, time: f64) -> f64 {
+    fn current(&self, _time: f64) -> f64 {
         10.0
     }
 
@@ -176,27 +171,6 @@ impl System<IzikevichModelState> for IzikevichModel {
     }
 }
 
-pub fn save(times: &Vec<f64>, states: &Vec<IzikevichModelState>, filename: &Path) {
-    let file = match File::create(filename) {
-        Err(e) => {
-            log::error!("Could not open file. Error: {:?}", e);
-            return;
-        }
-        Ok(buf) => buf,
-    };
-    let mut buf = BufWriter::new(file);
-    for (i, state) in states.iter().enumerate() {
-        buf.write_fmt(format_args!("{}", times[i])).unwrap();
-        for val in state.iter() {
-            buf.write_fmt(format_args!(", {}", val)).unwrap();
-        }
-        buf.write_fmt(format_args!("\n")).unwrap();
-    }
-    if let Err(e) = buf.flush() {
-        log::error!("Could not write to file. Error: {:?}", e);
-    }
-}
-
 pub fn integrate_until_time(
     t_last: f64,
     number_of_neurons: usize,
@@ -231,7 +205,7 @@ pub fn integrate_until_time(
         let res = stepper.integrate();
 
         match res {
-            Ok(stats) => {
+            Ok(..) => {
                 let times_len = stepper.x_out().len();
 
                 times.extend(stepper.x_out().iter().take(times_len - 1).cloned());
@@ -258,24 +232,14 @@ pub fn integrate_until_time(
         }
     });
 
-    let path = Path::new("./outputs/izikevich_model.dat");
-    save(&times, &states, path);
     (times, neuron_voltages)
 }
 
-#[cfg(test)]
-mod test {
-    use super::{integrate_until_time, ConnectivityGraphType, NetworkInitialization};
-    use either::Either;
-
-    #[test]
-    fn test_neurons() {
-        let _ = env_logger::try_init();
-        let network_initialization = NetworkInitialization::NoRandomWeight {
-            membrane_potential: -65.0,
-            recovery_variable: -14.0,
-        };
-        let connectivity_graph = Either::Left(ConnectivityGraphType::Erdos { connectivity: 1.0 });
-        integrate_until_time(1000.0, 10, connectivity_graph, network_initialization);
-    }
+pub fn reserviore_test() -> (Vec<f64>, Vec<Vec<f64>>) {
+    let network_initialization = NetworkInitialization::NoRandomWeight {
+        membrane_potential: -65.0,
+        recovery_variable: -14.0,
+    };
+    let connectivity_graph = Either::Left(ConnectivityGraphType::Erdos { connectivity: 1.0 });
+    integrate_until_time(1000.0, 10, connectivity_graph, network_initialization)
 }
