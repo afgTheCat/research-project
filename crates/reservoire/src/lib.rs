@@ -6,7 +6,7 @@ use rand_distr::Normal;
 use std::iter::repeat_with;
 
 #[derive(Debug, Clone)]
-pub enum NetworkInitialization {
+pub enum InitialNetworkStateInit {
     NoRandomWeight {
         membrane_potential: f64,
         recovery_variable: f64,
@@ -17,6 +17,11 @@ pub enum NetworkInitialization {
         membrane_potential_deviation: f64,
         recovery_variable_deviation: f64,
     },
+}
+
+#[derive(Debug, Clone)]
+pub enum InputMatrixSetUp {
+    AllConnected,
 }
 
 pub enum ConnectivityGraphType {
@@ -44,6 +49,11 @@ fn create_random_graph(
     }
 }
 
+pub struct InputStep {
+    duration: f64,
+    vals: DMatrix<f64>,
+}
+
 #[derive(Debug, Clone)]
 pub struct IzikevichModel {
     a: f64,
@@ -53,6 +63,8 @@ pub struct IzikevichModel {
     number_of_neurons: usize,
     spike_value: f64,
     connectivity_matrix: DMatrix<f64>,
+    network_initialization: InitialNetworkStateInit,
+    input_matrix_setup: InputMatrixSetUp,
 }
 
 impl IzikevichModel {
@@ -64,6 +76,8 @@ impl IzikevichModel {
         number_of_neurons: usize,
         spike_value: f64,
         connectivity_graph: Either<ConnectivityGraphType, DMatrix<f64>>,
+        network_initialization: InitialNetworkStateInit,
+        input_matrix_setup: InputMatrixSetUp,
     ) -> Self {
         let connectivity_matrix = match connectivity_graph {
             Either::Left(connectivity_graph_type) => {
@@ -79,6 +93,8 @@ impl IzikevichModel {
             number_of_neurons,
             spike_value,
             connectivity_matrix,
+            network_initialization,
+            input_matrix_setup,
         }
     }
 
@@ -87,22 +103,87 @@ impl IzikevichModel {
         10.0
     }
 
-    pub fn init_state(
+    fn integrate_single_state(
         &self,
-        network_initialization: NetworkInitialization,
-        number_of_neurons: usize,
-    ) -> IzikevichModelState {
-        match network_initialization {
-            NetworkInitialization::NoRandomWeight {
+        input: InputStep,
+        mut current_time: f64,
+        dt: f64,
+        mut current_state: IzikevichModelState,
+        times: &mut Vec<f64>,
+        states: &mut Vec<IzikevichModelState>,
+    ) -> Option<IzikevichModelState> {
+        let time_to_stop = current_time + input.duration;
+        loop {
+            let mut stepper = Dopri5::new(
+                self.clone(),
+                current_time,
+                time_to_stop,
+                dt,
+                current_state,
+                1.0e-10,
+                1.0e-10,
+            );
+            let res = stepper.integrate();
+            match res {
+                Ok(..) => {
+                    let stepped_lens = stepper.x_out().len();
+                    times.extend(stepper.x_out().iter().take(stepped_lens - 1).cloned());
+                    states.extend(stepper.y_out().iter().take(stepped_lens - 1).cloned());
+                    current_time = *stepper.x_out().last().unwrap();
+                    let mut last_stage = stepper.y_out().last().unwrap().clone();
+                    self.handle_post_fire(&mut last_stage);
+                    current_state = last_stage as IzikevichModelState;
+                }
+                Err(..) => {
+                    break None;
+                }
+            }
+            if current_time > time_to_stop - dt {
+                break Some(current_state);
+            }
+        }
+    }
+
+    pub fn get_states(&self, inputs: Vec<InputStep>) -> Option<(Vec<f64>, Vec<Vec<f64>>)> {
+        let current_time = 0.0;
+        let dt = 0.05;
+        let mut times: Vec<f64> = vec![];
+        let mut states: Vec<IzikevichModelState> = vec![];
+        let mut current_state = self.init_state();
+        for input in inputs {
+            current_state = self.integrate_single_state(
+                input,
+                current_time,
+                dt,
+                current_state,
+                &mut times,
+                &mut states,
+            )?;
+        }
+        let mut neuron_voltages = repeat_with(|| vec![])
+            .take(self.number_of_neurons)
+            .collect::<Vec<Vec<f64>>>();
+
+        states.iter().for_each(|time_step| {
+            for neuron in 0..self.number_of_neurons {
+                neuron_voltages[neuron].push(time_step[neuron]);
+            }
+        });
+        Some((times, neuron_voltages))
+    }
+
+    pub fn init_state(&self) -> IzikevichModelState {
+        match self.network_initialization {
+            InitialNetworkStateInit::NoRandomWeight {
                 membrane_potential,
                 recovery_variable,
             } => {
-                let iter = repeat_with(|| membrane_potential)
-                    .take(number_of_neurons)
-                    .chain(repeat_with(|| recovery_variable).take(number_of_neurons));
-                IzikevichModelState::from_iterator(2 * number_of_neurons, iter)
+                let neuron_iter = repeat_with(|| membrane_potential)
+                    .take(self.number_of_neurons)
+                    .chain(repeat_with(|| recovery_variable).take(self.number_of_neurons));
+                IzikevichModelState::from_iterator(2 * self.number_of_neurons, neuron_iter)
             }
-            NetworkInitialization::NormalWeight {
+            InitialNetworkStateInit::NormalWeight {
                 membrane_potential,
                 recovery_variable,
                 membrane_potential_deviation,
@@ -114,16 +195,16 @@ impl IzikevichModel {
                     Normal::new(membrane_potential, membrane_potential_deviation).unwrap();
                 let recovery_variable_distribution =
                     Normal::new(recovery_variable, recovery_variable_deviation).unwrap();
-                let init_state =
+                let neuron_iter =
                     repeat_with(|| membrane_potential_distribution.sample(&mut membrane_rng))
-                        .take(number_of_neurons)
+                        .take(self.number_of_neurons)
                         .chain(
                             repeat_with(|| {
                                 recovery_variable_distribution.sample(&mut recovery_rng)
                             })
-                            .take(number_of_neurons),
+                            .take(self.number_of_neurons),
                         );
-                IzikevichModelState::from_iterator(2 * number_of_neurons, init_state)
+                IzikevichModelState::from_iterator(2 * self.number_of_neurons, neuron_iter)
             }
         }
     }
@@ -143,7 +224,9 @@ type IzikevichModelState = DVector<f64>;
 
 impl System<IzikevichModelState> for IzikevichModel {
     fn system(&self, time: f64, y: &IzikevichModelState, dy: &mut IzikevichModelState) {
+        // this current has to be changed
         let current = DVector::<f64>::zeros(self.number_of_neurons).add_scalar(self.current(time));
+
         let v_slice = y.slice((0, 0), (self.number_of_neurons, 1));
         let u_slice = y.slice((self.number_of_neurons, 0), (self.number_of_neurons, 1));
         let new_v_slice: DVector<f64> =
@@ -171,11 +254,21 @@ impl System<IzikevichModelState> for IzikevichModel {
     }
 }
 
+struct Integrator {
+    a: f64,
+    b: f64,
+    c: f64,
+    d: f64,
+    number_of_neurons: usize,
+    spike_value: f64,
+    current_input: DVector<f64>,
+}
+
 pub fn integrate_until_time(
     t_last: f64,
     number_of_neurons: usize,
     connectivity_graph: Either<ConnectivityGraphType, DMatrix<f64>>,
-    network_initialization: NetworkInitialization,
+    network_initialization: InitialNetworkStateInit,
 ) -> (Vec<f64>, Vec<Vec<f64>>) {
     let izikevich_model = IzikevichModel::new(
         0.02,
@@ -185,12 +278,14 @@ pub fn integrate_until_time(
         number_of_neurons,
         35.0,
         connectivity_graph,
+        network_initialization,
+        InputMatrixSetUp::AllConnected,
     );
     let mut t = 0.0;
     let dt = 0.05;
     let mut times: Vec<f64> = vec![];
     let mut states: Vec<IzikevichModelState> = vec![];
-    let mut current_state = izikevich_model.init_state(network_initialization, number_of_neurons);
+    let mut current_state = izikevich_model.init_state();
 
     while t < t_last - dt {
         let mut stepper = Dopri5::new(
@@ -236,7 +331,7 @@ pub fn integrate_until_time(
 }
 
 pub fn reserviore_test() -> (Vec<f64>, Vec<Vec<f64>>) {
-    let network_initialization = NetworkInitialization::NoRandomWeight {
+    let network_initialization = InitialNetworkStateInit::NoRandomWeight {
         membrane_potential: -65.0,
         recovery_variable: -14.0,
     };
