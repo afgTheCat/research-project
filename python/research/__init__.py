@@ -1,1 +1,1 @@
-from .reservoire_extension import *  # type: ignore  # noqa F403
+from reservoire_extension import *  # type: ignore  # noqa F403
