@@ -1,3 +1,5 @@
 import resframe
 
-resframe.test_frame()
+if __name__ == "__main__":
+    rc_model = resframe.RCModel()
+    rc_model.test_reservoire()
