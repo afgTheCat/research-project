@@ -55,7 +55,7 @@ pub enum InputMatrixSetUp {
 
 #[derive(Debug, Clone)]
 pub enum ConnectivitySetUpType {
-    Erdos { connectivity: f64 },
+    Erdos(f64),
 }
 
 fn create_random_graph(
@@ -63,7 +63,7 @@ fn create_random_graph(
     size: usize,
 ) -> DMatrix<f64> {
     match connectivity_graph_type {
-        ConnectivitySetUpType::Erdos { connectivity } => {
+        ConnectivitySetUpType::Erdos(connectivity) => {
             let mut rng = rand::thread_rng();
             let bernoulli_distr = Bernoulli::new(*connectivity).unwrap();
             let erdos_iter = repeat_with(|| {
@@ -79,9 +79,10 @@ fn create_random_graph(
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct InputStep {
     duration: f64,
-    vals: DVector<f64>,
+    vals: DVector<f64>, // now this is going to be the hardest one yet!
 }
 
 impl InputStep {
@@ -97,8 +98,11 @@ impl InputStep {
         self.vals.len()
     }
 
-    pub fn new(duration: f64, vals: DVector<f64>) -> Self {
-        Self { duration, vals }
+    pub fn new(duration: f64, vals: Vec<f64>) -> Self {
+        Self {
+            duration,
+            vals: DVector::from_vec(vals),
+        }
     }
 }
 
@@ -152,7 +156,6 @@ impl IzikevichModel {
         }
     }
 
-    // we have to create the input I and the
     pub fn create_model_integrator(
         &self,
         input: InputStep,
@@ -164,7 +167,7 @@ impl IzikevichModel {
                 DMatrix::zeros(self.number_of_neurons as usize, input_size).add_scalar(1.0)
             }
         };
-        let current_input = input_matrix * input.vals;
+        let current_input = input_matrix * input.vals.clone();
         log::info!("current input: {:#x?}", current_input);
         ModelIntegrator::new(self, &current_input, connectivity_matrix)
     }
@@ -238,12 +241,6 @@ impl IzikevichModel {
         });
 
         Some((times, neuron_voltages))
-    }
-
-    pub fn get_states_with_val(&self) -> Option<(Vec<f64>, Vec<Vec<f64>>)> {
-        let input_vals = DVector::from_vec(vec![10.0]);
-        let inputs = vec![InputStep::new(1000.0, input_vals)];
-        self.get_states(inputs)
     }
 
     pub fn init_state(&self) -> IzikevichModelState {

@@ -13,5 +13,6 @@ path = "src/lib.rs"
 
 [dependencies]
 either = "1.8.0"
+nalgebra = "0.31.2"
 pyo3 = { version = "0.16", features = ["abi3-py37", "extension-module"] }
 reservoire = { path = "../reservoire", version = "0.1.0" }
