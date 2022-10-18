@@ -36,14 +36,27 @@ enum NetworkInitPrimitive {
     NormalRandomWeight,
 }
 
+#[pyclass]
+#[derive(Debug, Clone)]
+enum ConnectivityPrimitive {
+    ErdosUniform,
+    ErdosNormal,
+}
+
 impl Default for VariantChooser {
     fn default() -> Self {
         Self {
             network_init_primitive: NetworkInitPrimitive::NoRandomWeight,
+            connectivity_primitive: ConnectivityPrimitive::ErdosUniform,
             network_membrane_potential: -65.0,
             network_recovery_variable: -14.0,
             network_membrane_potential_dev: 0.0,
             network_recovery_variable_dev: 0.0,
+            erdos_connectivity: 1.0,
+            erdos_uniform_lower: 0.0,
+            erdos_uniform_upper: 1.0,
+            erdos_normal_mean: 0.0,
+            erdos_normal_dev: 1.0,
         }
     }
 }
@@ -52,15 +65,36 @@ impl Default for VariantChooser {
 #[derive(Debug, Clone)]
 pub struct VariantChooser {
     network_init_primitive: NetworkInitPrimitive,
+    connectivity_primitive: ConnectivityPrimitive,
     network_membrane_potential: f64,
     network_recovery_variable: f64,
     network_membrane_potential_dev: f64,
     network_recovery_variable_dev: f64,
+    erdos_connectivity: f64,
+    erdos_uniform_lower: f64,
+    erdos_uniform_upper: f64,
+    erdos_normal_mean: f64,
+    erdos_normal_dev: f64,
 }
 
 impl VariantChooser {
     fn connectivity_graph(&self) -> Either<ConnectivitySetUpType, DMatrix<f64>> {
-        Either::Left(ConnectivitySetUpType::Erdos(1.0))
+        match self.connectivity_primitive {
+            ConnectivityPrimitive::ErdosUniform => {
+                Either::Left(ConnectivitySetUpType::ErdosLowerUpper {
+                    connectivity: self.erdos_connectivity,
+                    lower: self.erdos_uniform_lower,
+                    upper: self.erdos_uniform_upper,
+                })
+            }
+            ConnectivityPrimitive::ErdosNormal => {
+                Either::Left(ConnectivitySetUpType::ErdosNormal {
+                    connectivity: self.erdos_connectivity,
+                    mean: self.erdos_normal_mean,
+                    dev: self.erdos_normal_dev,
+                })
+            }
+        }
     }
 
     fn input_matrix_setup(&self) -> InputMatrixSetUp {
@@ -88,24 +122,42 @@ impl VariantChooser {
     #[new]
     #[args(
         network_init_primitive = "NetworkInitPrimitive::NoRandomWeight",
+        connectivity_primitive = "ConnectivityPrimitive::ErdosUniform",
         network_membrane_potential = "-65.0",
         network_recovery_variable = "-14.0",
         network_membrane_potential_dev = "0.0",
-        network_recovery_variable_dev = "0.0"
+        network_recovery_variable_dev = "0.0",
+        erdos_connectivity = "1.0",
+        erdos_uniform_lower = "0.0",
+        erdos_uniform_upper = "1.0",
+        erdos_normal_mean = "0.0",
+        erdos_normal_dev = "1.0"
     )]
     fn new(
         network_init_primitive: NetworkInitPrimitive,
+        connectivity_primitive: ConnectivityPrimitive,
         network_membrane_potential: f64,
         network_membrane_potential_dev: f64,
         network_recovery_variable: f64,
         network_recovery_variable_dev: f64,
+        erdos_connectivity: f64,
+        erdos_uniform_lower: f64,
+        erdos_uniform_upper: f64,
+        erdos_normal_mean: f64,
+        erdos_normal_dev: f64,
     ) -> Self {
         Self {
             network_init_primitive,
+            connectivity_primitive,
             network_membrane_potential,
             network_recovery_variable,
             network_membrane_potential_dev,
             network_recovery_variable_dev,
+            erdos_connectivity,
+            erdos_uniform_lower,
+            erdos_uniform_upper,
+            erdos_normal_mean,
+            erdos_normal_dev,
         }
     }
 }
@@ -161,7 +213,8 @@ impl Reservoire {
 fn reservoire_extension(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Reservoire>()?;
     m.add_class::<InputSteps>()?;
-    m.add_class::<NetworkInitPrimitive>()?;
     m.add_class::<VariantChooser>()?;
+    m.add_class::<NetworkInitPrimitive>()?;
+    m.add_class::<ConnectivityPrimitive>()?;
     Ok(())
 }

@@ -66,6 +66,9 @@ class RCModel:
 
     def train(self, Xtrain, Y):
         res_states = self._reservoir.get_states(Xtrain)
+        print("heh????")
+        # (270, 29, 40)
+        print(res_states.shape)
 
         # last state representation
         input_repr = self.repr_state(res_states)
@@ -78,7 +81,6 @@ class RCModel:
 
         # last state representation
         input_repr_te = self.repr_state(res_states)
-        logits = self.readout.predict(input_repr_te)
 
         # Here lies the problem
         pred_class = np.argmax(logits, axis=1)

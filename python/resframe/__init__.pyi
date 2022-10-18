@@ -9,16 +9,28 @@ class NetworkInitPrimitive(enum.Enum):
     NoRandomWeight = '1',
     NormalRandomWeight = '2'
 
+class ConnectivityPrimitive(enum.Enum):
+    ErdosUniform = '1',
+    ErdosNormal = '2',
+
+
+
 class InputSteps():
     def __init__(self, input_vals: List[Tuple[float, List[float]]]) -> None: ...
 
 class VariantChooser():
     def __init__(self,
                  network_init_primitive = NetworkInitPrimitive.NoRandomWeight,
+                 connectivity_primitive = ConnectivityPrimitive.ErdosUniform,
                  network_membrane_potential = -65.0,
                  network_recovery_variable = -14.0,
                  network_membrane_potential_dev = 0.0,
-                 network_recovery_variable_dev = 0.0
+                 network_recovery_variable_dev = 0.0,
+                 erdos_connectivity = 1.0,
+                 erdos_uniform_lower = 0.0,
+                 erdos_uniform_upper = 1.0,
+                 erdos_normal_mean = 0.0,
+                 erdos_normal_dev = 1.0
     ) -> None: ...
 
 class Reservoire():

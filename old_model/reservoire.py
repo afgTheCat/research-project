@@ -109,6 +109,7 @@ class Reservoire:
         # State can be described with
         previous_state = np.array([initial_state for _ in range(N)])
         self.state_matrix = np.empty((N, T, 2 * self.n_internal_units), dtype=float)
+        print(self.state_matrix.shape)
 
         for t in range(T):
             current_input = X[:, t, :]  # [N, V]

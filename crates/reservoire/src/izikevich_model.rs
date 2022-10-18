@@ -1,7 +1,7 @@
 use crate::integration::ModelIntegrator;
 use either::Either;
 use nalgebra::{DMatrix, DVector};
-use ode_solvers::Dopri5;
+use ode_solvers::{Dop853, Dopri5, Rk4};
 use rand::{distributions::Bernoulli, prelude::Distribution, Rng};
 use rand_distr::Normal;
 use std::{
@@ -55,27 +55,86 @@ pub enum InputMatrixSetUp {
 
 #[derive(Debug, Clone)]
 pub enum ConnectivitySetUpType {
-    Erdos(f64),
+    ErdosZeroOne(f64),
+    ErdosZeroUp {
+        connectivity: f64,
+        upper: f64,
+    },
+    ErdosLowerUpper {
+        connectivity: f64,
+        lower: f64,
+        upper: f64,
+    },
+    ErdosNormal {
+        connectivity: f64,
+        mean: f64,
+        dev: f64,
+    },
 }
 
-fn create_random_graph(
+fn create_erdos_uniform_connectivity_matrix(
+    size: usize,
+    connectivity: f64,
+    lower: f64,
+    upper: f64,
+) -> DMatrix<f64> {
+    let mut bernoulli_rng = rand::thread_rng();
+    let mut uniform_rng = rand::thread_rng();
+    let bernoulli_distr = Bernoulli::new(connectivity).unwrap();
+    let erdos_iter = repeat_with(|| {
+        if bernoulli_distr.sample(&mut bernoulli_rng) {
+            uniform_rng.gen_range(lower..upper)
+        } else {
+            0.0
+        }
+    })
+    .take(size * size);
+    DMatrix::from_iterator(size, size, erdos_iter)
+}
+
+fn create_erdos_normal_connectivity_matrix(
+    size: usize,
+    connectivity: f64,
+    mean: f64,
+    dev: f64,
+) -> DMatrix<f64> {
+    let mut bernoulli = rand::thread_rng();
+    let mut normal_rng = rand::thread_rng();
+    let normal_distribution = Normal::new(mean, dev).unwrap();
+    let bernoulli_distr = Bernoulli::new(connectivity).unwrap();
+    let erdos_iter = repeat_with(|| {
+        if bernoulli_distr.sample(&mut bernoulli) {
+            normal_distribution.sample(&mut normal_rng)
+        } else {
+            0.0
+        }
+    })
+    .take(size * size);
+    DMatrix::from_iterator(size, size, erdos_iter)
+}
+
+fn create_connectivity_matrix(
     connectivity_graph_type: &ConnectivitySetUpType,
     size: usize,
 ) -> DMatrix<f64> {
     match connectivity_graph_type {
-        ConnectivitySetUpType::Erdos(connectivity) => {
-            let mut rng = rand::thread_rng();
-            let bernoulli_distr = Bernoulli::new(*connectivity).unwrap();
-            let erdos_iter = repeat_with(|| {
-                if bernoulli_distr.sample(&mut rng) {
-                    rng.gen_range(0.0..1.0)
-                } else {
-                    0.0
-                }
-            })
-            .take(size * size);
-            DMatrix::from_iterator(size, size, erdos_iter)
+        ConnectivitySetUpType::ErdosZeroOne(connectivity) => {
+            create_erdos_uniform_connectivity_matrix(size, *connectivity, 0.0, 1.0)
         }
+        ConnectivitySetUpType::ErdosZeroUp {
+            connectivity,
+            upper,
+        } => create_erdos_uniform_connectivity_matrix(size, *connectivity, 0.0, *upper),
+        ConnectivitySetUpType::ErdosLowerUpper {
+            connectivity,
+            lower,
+            upper,
+        } => create_erdos_uniform_connectivity_matrix(size, *connectivity, *lower, *upper),
+        ConnectivitySetUpType::ErdosNormal {
+            connectivity,
+            mean,
+            dev,
+        } => create_erdos_normal_connectivity_matrix(size, *connectivity, *mean, *dev),
     }
 }
 
@@ -150,7 +209,7 @@ impl IzikevichModel {
     pub fn connectivity_matrix(&self) -> DMatrix<f64> {
         match &self.connectivity_setup {
             Either::Left(connectivity_graph_type) => {
-                create_random_graph(&connectivity_graph_type, self.number_of_neurons)
+                create_connectivity_matrix(&connectivity_graph_type, self.number_of_neurons)
             }
             Either::Right(connectivity_matrix) => connectivity_matrix.clone(),
         }
@@ -168,68 +227,75 @@ impl IzikevichModel {
             }
         };
         let current_input = input_matrix * input.vals.clone();
-        log::info!("current input: {:#x?}", current_input);
         ModelIntegrator::new(self, &current_input, connectivity_matrix)
     }
 
     fn integrate_single_state(
         &self,
         input: InputStep,
-        mut current_time: f64,
+        current_time: &mut f64,
         mut current_state: IzikevichModelState,
         times: &mut Vec<f64>,
         states: &mut Vec<IzikevichModelState>,
         connectivity_matrix: &DMatrix<f64>,
     ) -> Option<IzikevichModelState> {
-        let time_to_stop = current_time + input.duration;
+        let time_to_stop = *current_time + input.duration;
         let model_integrator = self.create_model_integrator(input, &connectivity_matrix);
         loop {
             let mut stepper = Dopri5::new(
                 model_integrator.clone(),
-                current_time,
+                *current_time,
                 time_to_stop,
                 self.dt,
                 current_state,
                 1.0e-10,
                 1.0e-10,
             );
+
             let res = stepper.integrate();
+            log::info!("res: {:#x?}", res);
             match res {
                 Ok(..) => {
                     let stepped_lens = stepper.x_out().len();
                     times.extend(stepper.x_out().iter().take(stepped_lens - 1).cloned());
                     states.extend(stepper.y_out().iter().take(stepped_lens - 1).cloned());
-                    current_time = *stepper.x_out().last().unwrap();
+                    *current_time = *stepper.x_out().last().unwrap();
+                    log::info!("current time: {:#x?}", current_time);
+                    log::info!("times: {:#x?}", times);
                     let mut last_stage = stepper.y_out().last().unwrap().clone();
                     self.handle_post_fire(&mut last_stage);
                     current_state = last_stage as IzikevichModelState;
                 }
-                Err(..) => {
+                Err(err) => {
+                    log::info!("breaking here: {}", err);
                     break None;
                 }
             }
-            if current_time > time_to_stop - self.dt {
+            if *current_time > time_to_stop - self.dt {
                 break Some(current_state);
             }
         }
     }
 
     pub fn get_states(&self, inputs: Vec<InputStep>) -> Option<(Vec<f64>, Vec<Vec<f64>>)> {
-        let current_time = 0.0;
+        let mut current_time = 0.0;
         let mut times: Vec<f64> = vec![];
         let mut states: Vec<IzikevichModelState> = vec![];
         let mut current_state = self.init_state();
+        log::info!("current state: {:#x?}", current_state);
         let connectivity_matrix = self.connectivity_matrix();
+        log::info!("inputs: {:#x?}", inputs);
         for input in inputs {
             current_state = self.integrate_single_state(
                 input,
-                current_time,
+                &mut current_time,
                 current_state,
                 &mut times,
                 &mut states,
                 &connectivity_matrix,
             )?;
         }
+
         let mut neuron_voltages = repeat_with(|| vec![])
             .take(self.number_of_neurons)
             .collect::<Vec<Vec<f64>>>();
@@ -239,6 +305,9 @@ impl IzikevichModel {
                 neuron_voltages[neuron].push(time_step[neuron]);
             }
         });
+
+        let path = Path::new("./outputs/izikevich_model.dat");
+        save(&times, &states, path);
 
         Some((times, neuron_voltages))
     }
