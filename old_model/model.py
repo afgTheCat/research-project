@@ -80,6 +80,7 @@ class RCModel:
         input_repr_te = self.repr_state(res_states)
 
         # Here lies the problem
+        logits = self.readout.predict(input_repr_te)
         pred_class = np.argmax(logits, axis=1)
         accuracy, f1 = compute_test_scores(pred_class, Yte)
         return (accuracy, f1)

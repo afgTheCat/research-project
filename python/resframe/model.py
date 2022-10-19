@@ -1,3 +1,4 @@
+from os import read
 import resframe
 from sklearn.linear_model import Ridge
 from sklearn.neural_network import MLPClassifier
@@ -22,7 +23,7 @@ def compute_test_scores(pred_class, Yte):
 class RCModel:
     def __init__(
         self,
-        readout="lin",
+        readout_type="lin",
         representation="last",
         w_ridge=5,
         dt=0.05,
@@ -65,8 +66,10 @@ class RCModel:
                     f"representation {representation} is not implemented"
                 )
 
+        self.readout_type = readout_type
+
         # readout
-        match readout:
+        match readout_type:
             case "lin":
                 self.readout = Ridge(alpha=w_ridge)
             case "mlp":
@@ -80,6 +83,17 @@ class RCModel:
                 )
             case other:
                 raise RuntimeError(f"readout method {other} is not implemented")
+
+    def reservoire_states_with_times(self, res_inputs):
+        all_states = []
+        input_len = len(res_inputs)
+        for i, inp in enumerate(res_inputs):
+            print(f"processing {i+1} of {input_len}")
+            states = self.reservoire.get_states(
+                inp
+            )  # [N, States] but the states may have different lenghts
+            all_states.append(states)
+        return all_states
 
     def reservoire_states(self, res_inputs):
         all_states = []
@@ -99,10 +113,12 @@ class RCModel:
                 # last_states = [neuron_state[-1][-1] for neuron_state in states]
                 return np.array(last_states)
             case other:
-                raise RuntimeError(f"representation: {self.readout}")
+                raise RuntimeError(
+                    f"representation: {self.readout_type} not implemented"
+                )
 
     def train_readout(self, representation, Y):
-        match self.readout:
+        match self.readout_type:
             case "lin":
                 self.readout.fit(representation, Y)
 
@@ -119,16 +135,21 @@ class RCModel:
         self.train_readout(representation, Y)
 
     def _predict(self, representation):
-        match self.readout:
+        match self.readout_type:
             case "lin":
                 logits = self.readout.predict(representation)
                 return np.argmax(logits, axis=1)
+            case readout:
+                raise RuntimeError(f"readout {readout} not implemented")
 
     def test(self, res_inputs, Ytest):
         all_states = self.reservoire_states(res_inputs)
         representation = self._state_repr(all_states)
+        print(representation)
 
         pred_class = self._predict(representation)
+        print(pred_class)
+
         accuracy, f1 = compute_test_scores(pred_class, Ytest)
 
         return (accuracy, f1)
