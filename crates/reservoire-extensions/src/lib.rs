@@ -27,6 +27,13 @@ impl InputSteps {
             .collect::<Vec<_>>();
         Self { input_steps }
     }
+
+    fn vals(&self) -> Vec<Vec<f64>> {
+        self.input_steps
+            .iter()
+            .map(|input_step| input_step.vals().into_iter().cloned().collect())
+            .collect()
+    }
 }
 
 #[pyclass]
@@ -204,7 +211,7 @@ impl Reservoire {
         }
     }
 
-    fn get_states(&self, input: InputSteps) -> Option<(Vec<f64>, Vec<Vec<f64>>)> {
+    fn get_states(&self, input: InputSteps) -> (Vec<f64>, Vec<Vec<f64>>) {
         self.reservoire.get_states(input.input_steps)
     }
 }

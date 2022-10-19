@@ -66,9 +66,6 @@ class RCModel:
 
     def train(self, Xtrain, Y):
         res_states = self._reservoir.get_states(Xtrain)
-        print("heh????")
-        # (270, 29, 40)
-        print(res_states.shape)
 
         # last state representation
         input_repr = self.repr_state(res_states)

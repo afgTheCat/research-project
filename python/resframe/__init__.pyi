@@ -1,4 +1,5 @@
 import enum
+from math import floor
 from typing import List, Tuple, Optional
 
 
@@ -13,10 +14,9 @@ class ConnectivityPrimitive(enum.Enum):
     ErdosUniform = '1',
     ErdosNormal = '2',
 
-
-
 class InputSteps():
     def __init__(self, input_vals: List[Tuple[float, List[float]]]) -> None: ...
+    def vals(self) -> List[List[float]]: ...
 
 class VariantChooser():
     def __init__(self,
@@ -44,8 +44,29 @@ class Reservoire():
                  number_of_neurons: Optional[int] = 10,
                  variant_chooser: Optional[VariantChooser] = VariantChooser()
     ) -> None: ...
-    def get_states(self, input: InputSteps) -> Optional[Tuple[List[float], List[List[float]]]]: ...
+    def get_states(self, input: InputSteps) -> Tuple[List[float], List[List[float]]]: ...
 
 class RCModel():
-    def __init__(self) -> None: ...
+    def __init__(self,
+                 readout = "lin",
+                 w_ridge=5,
+                 dt=0.05,
+                 representation="last",
+                 number_of_neurons=20,
+                 network_init_primitive = NetworkInitPrimitive.NoRandomWeight,
+                 network_membrane_potential = -65.0,
+                 network_recovery_variable = -14.0,
+                 network_membrane_potential_dev = 0.0,
+                 network_recovery_variable_dev = 0.0,
+                 connectivity_primitive = ConnectivityPrimitive.ErdosUniform,
+                 erdos_connectivity = 1.0,
+                 erdos_uniform_lower = 0.0,
+                 erdos_uniform_upper = 1.0,
+                 erdos_normal_mean = 0.0,
+                 erdos_normal_dev = 1.0
+    ) -> None: ...
     def test_reservoire(self) -> None: ...
+    # def reservoire_states(self, input: List[InputSteps]) -> Tuple[List[float], List[List[List[float]]]]: ...
+    def reservoire_states(self, input: List[InputSteps]) -> List[Tuple[List[float], List[List[float]]]]: ...
+    def train(self, input: List[InputSteps], labels) -> None: ...
+    def test(self, input: List[InputSteps], labels) -> Tuple[float, float]: ...
