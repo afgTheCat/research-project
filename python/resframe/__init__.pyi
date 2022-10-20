@@ -6,6 +6,10 @@ from typing import List, Tuple, Optional
 def reservoire_test() -> Tuple[List[float], List[List[float]]]: ...
 def test_frame() -> None: ...
 
+class InputPrimitive(enum.Enum):
+    AllConnected = '1',
+    PercentageConnected = '2'
+
 class NetworkInitPrimitive(enum.Enum):
     NoRandomWeight = '1',
     NormalRandomWeight = '2'
@@ -13,6 +17,7 @@ class NetworkInitPrimitive(enum.Enum):
 class ConnectivityPrimitive(enum.Enum):
     ErdosUniform = '1',
     ErdosNormal = '2',
+    ErdosSpectral = '3'
 
 class InputSteps():
     def __init__(self, input_vals: List[Tuple[float, List[float]]]) -> None: ...
@@ -22,6 +27,7 @@ class VariantChooser():
     def __init__(self,
                  network_init_primitive = NetworkInitPrimitive.NoRandomWeight,
                  connectivity_primitive = ConnectivityPrimitive.ErdosUniform,
+                 input_primitive = InputPrimitive.AllConnected,
                  network_membrane_potential = -65.0,
                  network_recovery_variable = -14.0,
                  network_membrane_potential_dev = 0.0,
@@ -30,7 +36,9 @@ class VariantChooser():
                  erdos_uniform_lower = 0.0,
                  erdos_uniform_upper = 1.0,
                  erdos_normal_mean = 0.0,
-                 erdos_normal_dev = 1.0
+                 erdos_normal_dev = 1.0,
+                 erdos_spectral_radius = 0.59,
+                 input_connectivity_p = 0.5
     ) -> None: ...
 
 class Reservoire():
@@ -63,7 +71,10 @@ class RCModel():
                  erdos_uniform_lower = 0.0,
                  erdos_uniform_upper = 1.0,
                  erdos_normal_mean = 0.0,
-                 erdos_normal_dev = 1.0
+                 erdos_normal_dev = 1.0,
+                 erdos_spectral_radius = 0.59,
+                 input_primitive=InputPrimitive.AllConnected,
+                 input_connectivity_p=0.5,
     ) -> None: ...
     def test_reservoire(self) -> None: ...
     def reservoire_states(self, input: List[InputSteps]) -> List[List[List[float]]]: ...

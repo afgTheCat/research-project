@@ -48,6 +48,14 @@ enum NetworkInitPrimitive {
 enum ConnectivityPrimitive {
     ErdosUniform,
     ErdosNormal,
+    ErdosSpectral,
+}
+
+#[pyclass]
+#[derive(Debug, Clone)]
+enum InputPrimitive {
+    AllConnected,
+    PercentageConnected,
 }
 
 impl Default for VariantChooser {
@@ -55,6 +63,8 @@ impl Default for VariantChooser {
         Self {
             network_init_primitive: NetworkInitPrimitive::NoRandomWeight,
             connectivity_primitive: ConnectivityPrimitive::ErdosUniform,
+            input_primitive: InputPrimitive::AllConnected,
+            input_connectivity_p: 0.5,
             network_membrane_potential: -65.0,
             network_recovery_variable: -14.0,
             network_membrane_potential_dev: 0.0,
@@ -64,6 +74,7 @@ impl Default for VariantChooser {
             erdos_uniform_upper: 1.0,
             erdos_normal_mean: 0.0,
             erdos_normal_dev: 1.0,
+            erdos_spectral_radius: 0.59,
         }
     }
 }
@@ -73,6 +84,8 @@ impl Default for VariantChooser {
 pub struct VariantChooser {
     network_init_primitive: NetworkInitPrimitive,
     connectivity_primitive: ConnectivityPrimitive,
+    input_primitive: InputPrimitive,
+    input_connectivity_p: f64,
     network_membrane_potential: f64,
     network_recovery_variable: f64,
     network_membrane_potential_dev: f64,
@@ -82,6 +95,7 @@ pub struct VariantChooser {
     erdos_uniform_upper: f64,
     erdos_normal_mean: f64,
     erdos_normal_dev: f64,
+    erdos_spectral_radius: f64,
 }
 
 impl VariantChooser {
@@ -101,11 +115,22 @@ impl VariantChooser {
                     dev: self.erdos_normal_dev,
                 })
             }
+            ConnectivityPrimitive::ErdosSpectral => {
+                Either::Left(ConnectivitySetUpType::ErdosSpectral {
+                    connectivity: self.erdos_connectivity,
+                    spectral_radius: self.erdos_spectral_radius,
+                })
+            }
         }
     }
 
     fn input_matrix_setup(&self) -> InputMatrixSetUp {
-        InputMatrixSetUp::AllConnected
+        match self.input_primitive {
+            InputPrimitive::AllConnected => InputMatrixSetUp::AllConnected,
+            InputPrimitive::PercentageConnected => InputMatrixSetUp::PercentageConnected {
+                connectivity: self.input_connectivity_p,
+            },
+        }
     }
 
     fn network_initialization(&self) -> InitialNetworkStateInit {
@@ -130,6 +155,7 @@ impl VariantChooser {
     #[args(
         network_init_primitive = "NetworkInitPrimitive::NoRandomWeight",
         connectivity_primitive = "ConnectivityPrimitive::ErdosUniform",
+        input_primitive = "InputPrimitive::AllConnected",
         network_membrane_potential = "-65.0",
         network_recovery_variable = "-14.0",
         network_membrane_potential_dev = "0.0",
@@ -138,11 +164,14 @@ impl VariantChooser {
         erdos_uniform_lower = "0.0",
         erdos_uniform_upper = "1.0",
         erdos_normal_mean = "0.0",
-        erdos_normal_dev = "1.0"
+        erdos_normal_dev = "1.0",
+        erdos_spectral_radius = "0.59",
+        input_connectivity_p = "0.5"
     )]
     fn new(
         network_init_primitive: NetworkInitPrimitive,
         connectivity_primitive: ConnectivityPrimitive,
+        input_primitive: InputPrimitive,
         network_membrane_potential: f64,
         network_membrane_potential_dev: f64,
         network_recovery_variable: f64,
@@ -152,10 +181,13 @@ impl VariantChooser {
         erdos_uniform_upper: f64,
         erdos_normal_mean: f64,
         erdos_normal_dev: f64,
+        erdos_spectral_radius: f64,
+        input_connectivity_p: f64,
     ) -> Self {
         Self {
             network_init_primitive,
             connectivity_primitive,
+            input_primitive,
             network_membrane_potential,
             network_recovery_variable,
             network_membrane_potential_dev,
@@ -165,6 +197,8 @@ impl VariantChooser {
             erdos_uniform_upper,
             erdos_normal_mean,
             erdos_normal_dev,
+            erdos_spectral_radius,
+            input_connectivity_p,
         }
     }
 }
@@ -223,5 +257,6 @@ fn reservoire_extension(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<VariantChooser>()?;
     m.add_class::<NetworkInitPrimitive>()?;
     m.add_class::<ConnectivityPrimitive>()?;
+    m.add_class::<InputPrimitive>()?;
     Ok(())
 }
