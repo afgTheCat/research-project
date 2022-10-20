@@ -19,6 +19,10 @@ class ConnectivityPrimitive(enum.Enum):
     ErdosNormal = '2',
     ErdosSpectral = '3'
 
+class ThalmicPrimitive(enum.Enum):
+    Const = '1',
+    Normal = '2'
+
 class InputSteps():
     def __init__(self, input_vals: List[Tuple[float, List[float]]]) -> None: ...
     def vals(self) -> List[List[float]]: ...
@@ -28,6 +32,7 @@ class VariantChooser():
                  network_init_primitive = NetworkInitPrimitive.NoRandomWeight,
                  connectivity_primitive = ConnectivityPrimitive.ErdosUniform,
                  input_primitive = InputPrimitive.AllConnected,
+                 thalmic_primitive = ThalmicPrimitive.Const,
                  network_membrane_potential = -65.0,
                  network_recovery_variable = -14.0,
                  network_membrane_potential_dev = 0.0,
@@ -38,7 +43,9 @@ class VariantChooser():
                  erdos_normal_mean = 0.0,
                  erdos_normal_dev = 1.0,
                  erdos_spectral_radius = 0.59,
-                 input_connectivity_p = 0.5
+                 input_connectivity_p = 0.5,
+                 thalmic_mean = 0.0,
+                 thalmic_dev = 0.0
     ) -> None: ...
 
 class Reservoire():
@@ -75,9 +82,15 @@ class RCModel():
                  erdos_spectral_radius = 0.59,
                  input_primitive=InputPrimitive.AllConnected,
                  input_connectivity_p=0.5,
+                 input_bias=0,
+                 input_scale=10,
+                 thalmic_primitive = ThalmicPrimitive.Const,
+                 thalmic_mean = 0.0,
+                 thalmic_dev = 0.0
     ) -> None: ...
     def test_reservoire(self) -> None: ...
-    def reservoire_states(self, input: List[InputSteps]) -> List[List[List[float]]]: ...
+    def create_reservoire_input(self) -> List[InputSteps]: ...
+    def reservoire_states(self, input: List[InputSteps]) -> Tuple[float, List[List[List[float]]]]: ...
     def reservoire_states_with_times(self, input: List[InputSteps]) -> List[Tuple[List[float], List[List[float]]]]: ...
     def train(self, input: List[InputSteps], labels) -> None: ...
     def test(self, input: List[InputSteps], labels) -> Tuple[float, float]: ...

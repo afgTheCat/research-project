@@ -1,13 +1,11 @@
-from os import read
-from typing import List
 import resframe
 from sklearn.linear_model import Ridge
 from sklearn.neural_network import MLPClassifier
 from resframe import (
     InputPrimitive,
-    InputSteps,
     NetworkInitPrimitive,
     ConnectivityPrimitive,
+    ThalmicPrimitive,
 )
 import numpy as np
 from sklearn.metrics import accuracy_score, f1_score
@@ -49,7 +47,13 @@ class RCModel:
         erdos_spectral_radius=0.59,
         input_primitive=InputPrimitive.AllConnected,
         input_connectivity_p=0.5,
-        n_drop=5,
+        n_drop=0,
+        input_delay=25.0,
+        input_bias=0,
+        input_scale=10,
+        thalmic_primitive=ThalmicPrimitive.Const,
+        thalmic_mean=0,
+        thalmic_dev=0,
     ) -> None:
         variant_chooser = resframe.VariantChooser(
             network_init_primitive=network_init_primitive,
@@ -66,6 +70,9 @@ class RCModel:
             erdos_uniform_upper=erdos_uniform_upper,
             erdos_spectral_radius=erdos_spectral_radius,
             input_connectivity_p=input_connectivity_p,
+            thalmic_primitive=thalmic_primitive,
+            thalmic_mean=thalmic_mean,
+            thalmic_dev=thalmic_dev,
         )
         self.reservoire = resframe.Reservoire(
             dt=dt, number_of_neurons=number_of_neurons, variant_chooser=variant_chooser
@@ -103,12 +110,25 @@ class RCModel:
             case other:
                 raise RuntimeError(f"readout method {other} is not implemented")
         self.n_drop = n_drop
+        self.input_delay = input_delay
+        self.bias = input_bias
+        self.scale = input_scale
+
+    def create_reservoire_input(self, X):
+        N, T, _ = X.shape
+        inputs = [[] for _ in range(N)]
+        for t in range(T):
+            current_input = X[:, t, :]
+            for i, input_at_time in enumerate(current_input):
+                inputs[i].append(
+                    (self.input_delay, self.bias + input_at_time * self.scale)
+                )
+        return [resframe.InputSteps(run_input) for run_input in inputs]
 
     def reservoire_states_with_times(self, res_inputs):
         all_states = []
         input_len = len(res_inputs)
         for i, inp in enumerate(res_inputs):
-            print(f"processing {i+1} of {input_len}")
             states = self.reservoire.get_states(
                 inp
             )  # [N, States] but the states may have different lenghts
@@ -118,41 +138,40 @@ class RCModel:
     def reservoire_states(self, res_inputs):
         all_states = []
         input_len = len(res_inputs)
+        t = []
         for i, inp in enumerate(res_inputs):
-            print(f"processing {i+1} of {input_len}")
-            _, run_states = self.reservoire.get_states(
+            t, run_states = self.reservoire.get_states(
                 inp
             )  # [N, States] but the states may have different lenghts
-            all_states.append(run_states)
-        return all_states
+            run_states = np.array(run_states).transpose()
+            all_states.append(run_states)  # run_states
+        return (t, np.array(all_states))
 
-    def _state_repr(self, states, res_inputs: List[InputSteps]):
+    def _state_repr(self, red_states, X):
         match self.representation:
             case "last":
-                last_states = [[neuron[-1] for neuron in run] for run in states]
-                return np.array(last_states)
+                return red_states[:, -1, :]
             # TODO: fix this!
             case "output":
                 coeff_tr = []
                 biases_tr = []
+                current_state = red_states[0, 0:-1, :]
+                # inputs_adjusted = np.repeat(X[0], int(self.input_delay), axis=0)
+                # next_inputs = inputs_adjusted[self.n_drop + 1 :, :]
 
-                all_but_last_state = []
-                states_with_dropoff = []
-                print(len(res_inputs[0].vals()))
-                # print(len(states_with_dropoff[0]))
-                # print(len(states_with_dropoff[0][0]))
+                for i in range(X.shape[0]):
+                    current_state = red_states[i, 0:-1, :]
+                    inputs_adjusted = np.repeat(X[i], int(self.input_delay), axis=0)
+                    next_inputs = inputs_adjusted[self.n_drop + 1 :, :]
 
-                # self._ridge_embedding.fit(
-                #     states[i, 0:-1, :], states[i, self.n_drop + 1 :, :]
-                # )
-                #     coeff_tr.append(self._ridge_embedding.coef_.ravel())
-                #     biases_tr.append(self._ridge_embedding.intercept_.ravel())
-                #
-                # return np.concatenate(
-                #     (np.vstack(coeff_tr), np.vstack(biases_tr)), axis=1
-                # )
-                last_states = [[neuron[-1] for neuron in run] for run in states]
-                return np.array(last_states)
+                    self._ridge_embedding.fit(current_state, next_inputs)
+
+                    coeff_tr.append(self._ridge_embedding.coef_.ravel())
+                    biases_tr.append(self._ridge_embedding.intercept_.ravel())
+
+                return np.concatenate(
+                    (np.vstack(coeff_tr), np.vstack(biases_tr)), axis=1
+                )
             case other:
                 raise RuntimeError(
                     f"representation: {self.readout_type} not implemented"
@@ -163,17 +182,18 @@ class RCModel:
             case "lin":
                 self.readout.fit(representation, Y)
 
-    def train(self, res_inputs, Y):
+    def train(self, Xtrain, Ytrain):
         # Gather all the states
-        all_states = self.reservoire_states(res_inputs)
+        reservoire_inputs = self.create_reservoire_input(Xtrain)
+        _, all_states = self.reservoire_states(reservoire_inputs)
 
         # TODO: dimensionality reduction
 
         # Represent the data
-        representation = self._state_repr(all_states, res_inputs)
+        representation = self._state_repr(all_states, Xtrain)
 
         # Set the readout
-        self.train_readout(representation, Y)
+        self.train_readout(representation, Ytrain)
 
     def _predict(self, representation):
         match self.readout_type:
@@ -183,14 +203,14 @@ class RCModel:
             case readout:
                 raise RuntimeError(f"readout {readout} not implemented")
 
-    def test(self, res_inputs, Ytest):
-        all_states = self.reservoire_states(res_inputs)
-        representation = self._state_repr(all_states, res_inputs)
-        print(representation)
+    def _inspect_preditions(self, pred_class, Y):
+        pass
 
+    def test(self, Xtest, Ytest):
+        reservoire_inputs = self.create_reservoire_input(Xtest)
+        _, all_states = self.reservoire_states(reservoire_inputs)
+        representation = self._state_repr(all_states, Xtest)
         pred_class = self._predict(representation)
-        print(pred_class)
-
+        self._inspect_preditions(pred_class, Ytest)
         accuracy, f1 = compute_test_scores(pred_class, Ytest)
-
         return (accuracy, f1)

@@ -2,18 +2,27 @@ import resframe
 import scipy.io
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
-import numpy as np
-from scipy import sparse
-from resframe import InputPrimitive
+from resframe import InputPrimitive, ThalmicPrimitive
+import logging
 
 
-def create_train_data(X):
+def create_input_steps(X):
     inputs = []
     for t in X:
         greater_then_delta = any(t > 0.1)
         if greater_then_delta:
-            inputs.append((25.0, t * 10.0))
+            inputs.append((25.0, 1 + t * 10.0))
     return resframe.InputSteps(inputs)
+
+
+def create_all_inputs(X):
+    N, T, _ = X.shape
+    inputs = [[] for _ in range(N)]
+    for t in range(T):
+        current_input = X[:, t, :]
+        for i, input_at_time in enumerate(current_input):
+            inputs[i].append((25.0, input_at_time))
+    return [resframe.InputSteps(run_input) for run_input in inputs]
 
 
 def inspect_neuron(res_output, number_of_neurons):
@@ -25,51 +34,71 @@ def inspect_neuron(res_output, number_of_neurons):
     plt.show()
 
 
-def testing_model():
+def test_training():
     data = scipy.io.loadmat("./data/JpVow.mat")
     onehot_encoder = OneHotEncoder(sparse=False)
 
+    rc_model = resframe.RCModel(
+        dt=1,
+        number_of_neurons=100,
+        erdos_connectivity=1,
+        connectivity_primitive=resframe.ConnectivityPrimitive.ErdosUniform,
+        erdos_uniform_lower=0,
+        erdos_uniform_upper=2,
+        input_primitive=InputPrimitive.PercentageConnected,
+        input_connectivity_p=0.5,
+        representation="output",
+        input_scale=10,
+        input_bias=1,
+        thalmic_primitive=ThalmicPrimitive.Const,
+        thalmic_mean=10,
+    )
+
     Xtrain = data["X"]
     Ytrain = data["Y"]
-
     Xtest = data["Xte"]
     Ytest = data["Yte"]
 
-    Xtrain = [create_train_data(x) for x in Xtrain]
-    Xtest = [create_train_data(x) for x in Xtest]
-
+    onehot_encoder = OneHotEncoder(sparse=False)
     Ytrain = onehot_encoder.fit_transform(Ytrain)
     Ytest = onehot_encoder.transform(Ytest)
 
-    rc_model = resframe.RCModel(dt=0.5, number_of_neurons=10, representation="output")
     rc_model.train(Xtrain, Ytrain)
-
     accuracy, f1 = rc_model.test(Xtest, Ytest)
     print("Accuracy = %.3f, F1 = %.3f" % (accuracy, f1))
 
 
-if __name__ == "__main__":
-    # testing_model()
-
+def neuron_visualize():
     data = scipy.io.loadmat("./data/JpVow.mat")
-    onehot_encoder = OneHotEncoder(sparse=False)
-
-    Xtrain = data["X"]
-    Xtrain = [create_train_data(x) for x in Xtrain]
-    number_of_neurons = 10
-
+    Xtrain = data["X"][0:1]
+    number_of_neurons = 100
     rc_model = resframe.RCModel(
-        dt=0.05,
+        dt=0.1,
         number_of_neurons=number_of_neurons,
         erdos_connectivity=1,
         connectivity_primitive=resframe.ConnectivityPrimitive.ErdosUniform,
         erdos_uniform_lower=0,
-        erdos_uniform_upper=1,
+        erdos_uniform_upper=2,
         input_primitive=InputPrimitive.PercentageConnected,
-        input_connectivity_p=0.3
-        # erdos_normal_dev=10,
-        # erdos_normal_mean=0,
+        input_connectivity_p=0.5,
+        representation="output",
+        input_scale=10,
+        input_bias=1,
+        thalmic_primitive=ThalmicPrimitive.Const,
+        thalmic_mean=10,
     )
+    inputs = rc_model.create_reservoire_input(Xtrain)
+    t, states = rc_model.reservoire_states(inputs)
+    states = states[0].transpose()
+    for n in range(number_of_neurons):
+        neuron_vals = states[n]
+        plt.plot(t, neuron_vals, label="Membrane Potential")[0]
+    plt.show()
 
-    first_run = rc_model.reservoire_states_with_times(Xtrain[0:1])
-    inspect_neuron(first_run[0], number_of_neurons)
+
+if __name__ == "__main__":
+    FORMAT = "%(levelname)s %(name)s %(asctime)-15s %(filename)s:%(lineno)d %(message)s"
+    logging.basicConfig(format=FORMAT)
+    logging.getLogger().setLevel(logging.INFO)
+    # neuron_visualize()
+    test_training()

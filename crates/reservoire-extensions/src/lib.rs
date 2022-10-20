@@ -1,9 +1,9 @@
-use either::Either;
+use log::info;
 use nalgebra::DMatrix;
 use pyo3::prelude::*;
 use reservoire::izikevich_model::InputStep as InputStepRust;
 use reservoire::izikevich_model::{
-    ConnectivitySetUpType, InitialNetworkStateInit, InputMatrixSetUp, IzikevichModel,
+    ConnectivitySetUpType, InitialNetworkStateInit, InputMatrixSetUp, IzikevichModel, ThalmicInput,
 };
 
 #[pyclass]
@@ -58,12 +58,20 @@ enum InputPrimitive {
     PercentageConnected,
 }
 
+#[pyclass]
+#[derive(Debug, Clone)]
+enum ThalmicPrimitive {
+    Const,
+    Normal,
+}
+
 impl Default for VariantChooser {
     fn default() -> Self {
         Self {
             network_init_primitive: NetworkInitPrimitive::NoRandomWeight,
             connectivity_primitive: ConnectivityPrimitive::ErdosUniform,
             input_primitive: InputPrimitive::AllConnected,
+            thalmic_primitive: ThalmicPrimitive::Const,
             input_connectivity_p: 0.5,
             network_membrane_potential: -65.0,
             network_recovery_variable: -14.0,
@@ -75,6 +83,8 @@ impl Default for VariantChooser {
             erdos_normal_mean: 0.0,
             erdos_normal_dev: 1.0,
             erdos_spectral_radius: 0.59,
+            thalmic_mean: 0.0,
+            thalmic_dev: 0.0,
         }
     }
 }
@@ -85,6 +95,7 @@ pub struct VariantChooser {
     network_init_primitive: NetworkInitPrimitive,
     connectivity_primitive: ConnectivityPrimitive,
     input_primitive: InputPrimitive,
+    thalmic_primitive: ThalmicPrimitive,
     input_connectivity_p: f64,
     network_membrane_potential: f64,
     network_recovery_variable: f64,
@@ -96,31 +107,27 @@ pub struct VariantChooser {
     erdos_normal_mean: f64,
     erdos_normal_dev: f64,
     erdos_spectral_radius: f64,
+    thalmic_mean: f64,
+    thalmic_dev: f64,
 }
 
 impl VariantChooser {
-    fn connectivity_graph(&self) -> Either<ConnectivitySetUpType, DMatrix<f64>> {
+    fn connectivity_graph(&self) -> ConnectivitySetUpType {
         match self.connectivity_primitive {
-            ConnectivityPrimitive::ErdosUniform => {
-                Either::Left(ConnectivitySetUpType::ErdosLowerUpper {
-                    connectivity: self.erdos_connectivity,
-                    lower: self.erdos_uniform_lower,
-                    upper: self.erdos_uniform_upper,
-                })
-            }
-            ConnectivityPrimitive::ErdosNormal => {
-                Either::Left(ConnectivitySetUpType::ErdosNormal {
-                    connectivity: self.erdos_connectivity,
-                    mean: self.erdos_normal_mean,
-                    dev: self.erdos_normal_dev,
-                })
-            }
-            ConnectivityPrimitive::ErdosSpectral => {
-                Either::Left(ConnectivitySetUpType::ErdosSpectral {
-                    connectivity: self.erdos_connectivity,
-                    spectral_radius: self.erdos_spectral_radius,
-                })
-            }
+            ConnectivityPrimitive::ErdosUniform => ConnectivitySetUpType::ErdosLowerUpper {
+                connectivity: self.erdos_connectivity,
+                lower: self.erdos_uniform_lower,
+                upper: self.erdos_uniform_upper,
+            },
+            ConnectivityPrimitive::ErdosNormal => ConnectivitySetUpType::ErdosNormal {
+                connectivity: self.erdos_connectivity,
+                mean: self.erdos_normal_mean,
+                dev: self.erdos_normal_dev,
+            },
+            ConnectivityPrimitive::ErdosSpectral => ConnectivitySetUpType::ErdosSpectral {
+                connectivity: self.erdos_connectivity,
+                spectral_radius: self.erdos_spectral_radius,
+            },
         }
     }
 
@@ -147,6 +154,16 @@ impl VariantChooser {
             },
         }
     }
+
+    fn thalmic_input(&self) -> ThalmicInput {
+        match self.thalmic_primitive {
+            ThalmicPrimitive::Const => ThalmicInput::Const(self.thalmic_mean),
+            ThalmicPrimitive::Normal => ThalmicInput::Normal {
+                mean: self.thalmic_mean,
+                dev: self.thalmic_dev,
+            },
+        }
+    }
 }
 
 #[pymethods]
@@ -166,11 +183,14 @@ impl VariantChooser {
         erdos_normal_mean = "0.0",
         erdos_normal_dev = "1.0",
         erdos_spectral_radius = "0.59",
-        input_connectivity_p = "0.5"
+        input_connectivity_p = "0.5",
+        thalmic_mean = "0.0",
+        thalmic_dev = "0.0"
     )]
     fn new(
         network_init_primitive: NetworkInitPrimitive,
         connectivity_primitive: ConnectivityPrimitive,
+        thalmic_primitive: ThalmicPrimitive,
         input_primitive: InputPrimitive,
         network_membrane_potential: f64,
         network_membrane_potential_dev: f64,
@@ -183,10 +203,13 @@ impl VariantChooser {
         erdos_normal_dev: f64,
         erdos_spectral_radius: f64,
         input_connectivity_p: f64,
+        thalmic_mean: f64,
+        thalmic_dev: f64,
     ) -> Self {
         Self {
             network_init_primitive,
             connectivity_primitive,
+            thalmic_primitive,
             input_primitive,
             network_membrane_potential,
             network_recovery_variable,
@@ -199,6 +222,8 @@ impl VariantChooser {
             erdos_normal_dev,
             erdos_spectral_radius,
             input_connectivity_p,
+            thalmic_mean,
+            thalmic_dev,
         }
     }
 }
@@ -227,22 +252,27 @@ impl Reservoire {
         variant_chooser: VariantChooser,
     ) -> Self {
         let connectivity_graph = variant_chooser.connectivity_graph();
+        info!("connectivity setup type: {:#x?}", connectivity_graph);
         let input_matrix_setup = variant_chooser.input_matrix_setup();
+        info!("input matrix setup: {:x?}", input_matrix_setup);
         let network_initialization = variant_chooser.network_initialization();
-        Self {
-            reservoire: IzikevichModel::new(
-                a,
-                b,
-                c,
-                d,
-                dt,
-                number_of_neurons,
-                spike_val,
-                connectivity_graph,
-                network_initialization,
-                input_matrix_setup,
-            ),
-        }
+        info!("initial network init: {:x?}", network_initialization);
+        let thalmic_input = variant_chooser.thalmic_input();
+        info!("thalmic input init: {:x?}", thalmic_input);
+        let reservoire = IzikevichModel::new(
+            a,
+            b,
+            c,
+            d,
+            dt,
+            number_of_neurons,
+            spike_val,
+            connectivity_graph,
+            network_initialization,
+            input_matrix_setup,
+            thalmic_input,
+        );
+        Self { reservoire }
     }
 
     fn get_states(&self, input: InputSteps) -> (Vec<f64>, Vec<Vec<f64>>) {
@@ -252,11 +282,13 @@ impl Reservoire {
 
 #[pymodule]
 fn reservoire_extension(_py: Python, m: &PyModule) -> PyResult<()> {
+    pyo3_log::init();
     m.add_class::<Reservoire>()?;
     m.add_class::<InputSteps>()?;
     m.add_class::<VariantChooser>()?;
     m.add_class::<NetworkInitPrimitive>()?;
     m.add_class::<ConnectivityPrimitive>()?;
     m.add_class::<InputPrimitive>()?;
+    m.add_class::<ThalmicPrimitive>()?;
     Ok(())
 }

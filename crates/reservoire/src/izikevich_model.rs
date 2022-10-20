@@ -1,8 +1,7 @@
-use either::Either;
-use nalgebra::{ComplexField, DMatrix, DVector, Dynamic, RowVector};
+use nalgebra::{ComplexField, DMatrix, DVector};
 use rand::{distributions::Bernoulli, prelude::Distribution, Rng};
 use rand_distr::Normal;
-use std::iter::{repeat, repeat_with};
+use std::iter::repeat_with;
 
 #[derive(Debug, Clone)]
 pub struct IzikevichModelState {
@@ -91,6 +90,12 @@ pub enum ConnectivitySetUpType {
     },
 }
 
+#[derive(Debug, Clone)]
+pub enum ThalmicInput {
+    Const(f64),
+    Normal { mean: f64, dev: f64 },
+}
+
 fn create_erdos_uniform_connectivity_matrix(
     size: usize,
     connectivity: f64,
@@ -132,58 +137,6 @@ fn create_erdos_normal_connectivity_matrix(
     DMatrix::from_iterator(size, size, erdos_iter)
 }
 
-fn create_connectivity_matrix(
-    connectivity_graph_type: &ConnectivitySetUpType,
-    size: usize,
-) -> DMatrix<f64> {
-    match connectivity_graph_type {
-        ConnectivitySetUpType::ErdosZeroOne(connectivity) => {
-            create_erdos_uniform_connectivity_matrix(size, *connectivity, 0.0, 1.0)
-        }
-        ConnectivitySetUpType::ErdosZeroUp {
-            connectivity,
-            upper,
-        } => create_erdos_uniform_connectivity_matrix(size, *connectivity, 0.0, *upper),
-        ConnectivitySetUpType::ErdosLowerUpper {
-            connectivity,
-            lower,
-            upper,
-        } => create_erdos_uniform_connectivity_matrix(size, *connectivity, *lower, *upper),
-        ConnectivitySetUpType::ErdosNormal {
-            connectivity,
-            mean,
-            dev,
-        } => create_erdos_normal_connectivity_matrix(size, *connectivity, *mean, *dev),
-        ConnectivitySetUpType::ErdosSpectral {
-            connectivity,
-            spectral_radius,
-        } => {
-            let mut bernoulli_rng = rand::thread_rng();
-            let mut uniform_rng = rand::thread_rng();
-            let bernoulli_distr = Bernoulli::new(*connectivity).unwrap();
-            let erdos_iter = repeat_with(|| {
-                if bernoulli_distr.sample(&mut bernoulli_rng) {
-                    uniform_rng.gen_range(-0.5..0.5)
-                } else {
-                    0.0
-                }
-            })
-            .take(size * size);
-            let mut conn_matrix = DMatrix::from_iterator(size, size, erdos_iter);
-            let current_spectral_radius = conn_matrix
-                .complex_eigenvalues()
-                .iter()
-                .fold(0.0, |acc, e| if e.abs() > acc { e.abs() } else { acc });
-            let spectral_radius_scale = current_spectral_radius / spectral_radius;
-            conn_matrix /= spectral_radius_scale;
-            conn_matrix
-
-            // if let Some(eigen_values) = conn_matrix.eigenvalues() {}
-            // let eigen_values = conn_matrix.eigenvalues();
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct InputStep {
     duration: f64,
@@ -222,18 +175,59 @@ pub struct IzikevichModel {
     pub dt: f64,
     pub connectivity_matrix: DMatrix<f64>,
     pub input_vector: Vec<f64>,
+    pub thalmic_input: ThalmicInput,
     network_initialization: InitialNetworkStateInit,
 }
 
 pub fn connectivity_matrix(
     number_of_neurons: usize,
-    connectivity_setup: Either<ConnectivitySetUpType, DMatrix<f64>>,
+    connectivity_setup: ConnectivitySetUpType,
 ) -> DMatrix<f64> {
     match connectivity_setup {
-        Either::Left(connectivity_graph_type) => {
-            create_connectivity_matrix(&connectivity_graph_type, number_of_neurons)
+        ConnectivitySetUpType::ErdosZeroOne(connectivity) => {
+            create_erdos_uniform_connectivity_matrix(number_of_neurons, connectivity, 0.0, 1.0)
         }
-        Either::Right(connectivity_matrix) => connectivity_matrix.clone(),
+        ConnectivitySetUpType::ErdosZeroUp {
+            connectivity,
+            upper,
+        } => create_erdos_uniform_connectivity_matrix(number_of_neurons, connectivity, 0.0, upper),
+        ConnectivitySetUpType::ErdosLowerUpper {
+            connectivity,
+            lower,
+            upper,
+        } => {
+            create_erdos_uniform_connectivity_matrix(number_of_neurons, connectivity, lower, upper)
+        }
+        ConnectivitySetUpType::ErdosNormal {
+            connectivity,
+            mean,
+            dev,
+        } => create_erdos_normal_connectivity_matrix(number_of_neurons, connectivity, mean, dev),
+        ConnectivitySetUpType::ErdosSpectral {
+            connectivity,
+            spectral_radius,
+        } => {
+            let mut bernoulli_rng = rand::thread_rng();
+            let mut uniform_rng = rand::thread_rng();
+            let bernoulli_distr = Bernoulli::new(connectivity).unwrap();
+            let erdos_iter = repeat_with(|| {
+                if bernoulli_distr.sample(&mut bernoulli_rng) {
+                    uniform_rng.gen_range(-0.5..0.5)
+                } else {
+                    0.0
+                }
+            })
+            .take(number_of_neurons * number_of_neurons);
+            let mut conn_matrix =
+                DMatrix::from_iterator(number_of_neurons, number_of_neurons, erdos_iter);
+            let current_spectral_radius = conn_matrix
+                .complex_eigenvalues()
+                .iter()
+                .fold(0.0, |acc, e| if e.abs() > acc { e.abs() } else { acc });
+            let spectral_radius_scale = current_spectral_radius / spectral_radius;
+            conn_matrix /= spectral_radius_scale;
+            conn_matrix
+        }
     }
 }
 
@@ -265,9 +259,10 @@ impl IzikevichModel {
         dt: f64,
         number_of_neurons: usize,
         spike_value: f64,
-        connectivity_setup: Either<ConnectivitySetUpType, DMatrix<f64>>,
+        connectivity_setup: ConnectivitySetUpType,
         network_initialization: InitialNetworkStateInit,
         input_matrix_setup: InputMatrixSetUp,
+        thalmic_input: ThalmicInput,
     ) -> Self {
         let connectivity_matrix = connectivity_matrix(number_of_neurons, connectivity_setup);
         let input_vector = input_vector(number_of_neurons, input_matrix_setup);
@@ -282,6 +277,7 @@ impl IzikevichModel {
             connectivity_matrix,
             input_vector,
             network_initialization,
+            thalmic_input,
         }
     }
 
@@ -295,6 +291,7 @@ impl IzikevichModel {
             .take(self.number_of_neurons * input_size);
         let input_matrix =
             DMatrix::from_iterator(self.number_of_neurons, input_size, row_vectors_iter);
+
         input_matrix * input.vals.clone()
     }
 
@@ -363,7 +360,6 @@ impl IzikevichModel {
                     membrane_potentials,
                     membrane_recovery_variables,
                 }
-                // IzikevichModelState::from_iterator(2 * self.number_of_neurons, neuron_iter)
             }
             InitialNetworkStateInit::NormalWeight {
                 membrane_potential,
