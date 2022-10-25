@@ -34,7 +34,7 @@ def inspect_neuron(res_output, number_of_neurons):
     plt.show()
 
 
-def test_training():
+def test_training(thalmic=0):
     data = scipy.io.loadmat("./data/JpVow.mat")
     onehot_encoder = OneHotEncoder(sparse=False)
 
@@ -49,9 +49,9 @@ def test_training():
         input_connectivity_p=0.5,
         representation="output",
         input_scale=10,
-        input_bias=1,
+        input_bias=10,
         thalmic_primitive=ThalmicPrimitive.Const,
-        thalmic_mean=10,
+        thalmic_mean=thalmic * 10,
     )
 
     Xtrain = data["X"]
@@ -66,6 +66,7 @@ def test_training():
     rc_model.train(Xtrain, Ytrain)
     accuracy, f1 = rc_model.test(Xtest, Ytest)
     print("Accuracy = %.3f, F1 = %.3f" % (accuracy, f1))
+    return accuracy
 
 
 def neuron_visualize():
@@ -101,4 +102,9 @@ if __name__ == "__main__":
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.INFO)
     # neuron_visualize()
-    test_training()
+    results = []
+    for i in range(5):
+        res = test_training(i + 100)
+        results.append(res)
+
+    print(results)

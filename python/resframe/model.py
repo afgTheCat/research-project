@@ -82,12 +82,11 @@ class RCModel:
         match representation:
             case "last":
                 self.representation = representation
-            case "output":
+            case "output" | "reservoire" | "reservoire_adjusted":
                 self.representation = representation
                 self._ridge_embedding = Ridge(
                     alpha=w_ridge_embedding, fit_intercept=True
                 )
-
             case other:
                 raise RuntimeError(
                     f"representation {representation} is not implemented"
@@ -127,7 +126,6 @@ class RCModel:
 
     def reservoire_states_with_times(self, res_inputs):
         all_states = []
-        input_len = len(res_inputs)
         for i, inp in enumerate(res_inputs):
             states = self.reservoire.get_states(
                 inp
@@ -137,7 +135,6 @@ class RCModel:
 
     def reservoire_states(self, res_inputs):
         all_states = []
-        input_len = len(res_inputs)
         t = []
         for i, inp in enumerate(res_inputs):
             t, run_states = self.reservoire.get_states(
@@ -156,8 +153,6 @@ class RCModel:
                 coeff_tr = []
                 biases_tr = []
                 current_state = red_states[0, 0:-1, :]
-                # inputs_adjusted = np.repeat(X[0], int(self.input_delay), axis=0)
-                # next_inputs = inputs_adjusted[self.n_drop + 1 :, :]
 
                 for i in range(X.shape[0]):
                     current_state = red_states[i, 0:-1, :]
@@ -172,6 +167,35 @@ class RCModel:
                 return np.concatenate(
                     (np.vstack(coeff_tr), np.vstack(biases_tr)), axis=1
                 )
+            case "reservoire":
+                coeff_tr = []
+                biases_tr = []
+                for i in range(X.shape[0]):
+                    self._ridge_embedding.fit(
+                        red_states[i, 0:-1, :], red_states[i, 1:, :]
+                    )
+                    coeff_tr.append(self._ridge_embedding.coef_.ravel())
+                    biases_tr.append(self._ridge_embedding.intercept_.ravel())
+
+                return np.concatenate(
+                    (np.vstack(coeff_tr), np.vstack(biases_tr)), axis=1
+                )
+            case "reservoire_adjusted":
+                coeff_tr = []
+                biases_tr = []
+                input_len = int(self.input_delay)
+                for i in range(X.shape[0]):
+                    self._ridge_embedding.fit(
+                        red_states[0, 0:-input_len:input_len, :],
+                        red_states[0, input_len::input_len, :],
+                    )
+                    coeff_tr.append(self._ridge_embedding.coef_.ravel())
+                    biases_tr.append(self._ridge_embedding.intercept_.ravel())
+
+                return np.concatenate(
+                    (np.vstack(coeff_tr), np.vstack(biases_tr)), axis=1
+                )
+
             case other:
                 raise RuntimeError(
                     f"representation: {self.readout_type} not implemented"

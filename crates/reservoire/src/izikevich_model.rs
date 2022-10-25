@@ -259,10 +259,10 @@ impl IzikevichModel {
         dt: f64,
         number_of_neurons: usize,
         spike_value: f64,
-        connectivity_setup: ConnectivitySetUpType,
-        network_initialization: InitialNetworkStateInit,
-        input_matrix_setup: InputMatrixSetUp,
-        thalmic_input: ThalmicInput,
+        connectivity_setup: ConnectivitySetUpType, // connectivity to the input
+        network_initialization: InitialNetworkStateInit, // the initial states of the network
+        input_matrix_setup: InputMatrixSetUp,      // the input of the matrix
+        thalmic_input: ThalmicInput,               // thalmic input
     ) -> Self {
         let connectivity_matrix = connectivity_matrix(number_of_neurons, connectivity_setup);
         let input_vector = input_vector(number_of_neurons, input_matrix_setup);

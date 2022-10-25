@@ -62,8 +62,8 @@ if __name__ == "__main__":
     Ytrain = onehot_encoder.fit_transform(Ytrain)
     Ytest = onehot_encoder.transform(Ytest)
 
-    erdos = np.arange(0.2, 1, 0.1)
-    input_connectivity_p = np.arange(0.1, 1, 0.1)
+    erdos_connectivity = np.arange(0.2, 1, 0.1)
+    input_connectivity = np.arange(0.1, 1, 0.1)
     representation = ["last", "output"]
     input_scale = np.arange(7.5, 12.5, 0.5)
     input_bias = np.arange(0, 2, 0.2)
@@ -85,9 +85,9 @@ if __name__ == "__main__":
             "input_scale": s,
             "input_bias": ib,
         }
-        for e in erdos
+        for e in erdos_connectivity
         for (ul, up) in uniform_zip
-        for ic in input_connectivity_p
+        for ic in input_connectivity
         for r in representation
         for s in input_scale
         for ib in input_bias
