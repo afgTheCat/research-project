@@ -39,19 +39,23 @@ def test_training(thalmic=0):
     onehot_encoder = OneHotEncoder(sparse=False)
 
     rc_model = resframe.RCModel(
-        dt=1,
-        number_of_neurons=100,
+        dt=0.5,
+        a=0.2,
+        b=2,
+        c=-56,
+        d=-16,
+        number_of_neurons=10,
         erdos_connectivity=1,
         connectivity_primitive=resframe.ConnectivityPrimitive.ErdosUniform,
         erdos_uniform_lower=0,
         erdos_uniform_upper=2,
         input_primitive=InputPrimitive.PercentageConnected,
-        input_connectivity_p=0.5,
+        input_connectivity_p=1,
         representation="output",
         input_scale=10,
-        input_bias=10,
+        input_bias=0,
         thalmic_primitive=ThalmicPrimitive.Const,
-        thalmic_mean=thalmic * 10,
+        thalmic_mean=-99,
     )
 
     Xtrain = data["X"]
@@ -75,6 +79,10 @@ def neuron_visualize():
     number_of_neurons = 100
     rc_model = resframe.RCModel(
         dt=0.1,
+        a=0.2,
+        b=2.0,
+        c=-56.0,
+        d=-16.0,
         number_of_neurons=number_of_neurons,
         erdos_connectivity=1,
         connectivity_primitive=resframe.ConnectivityPrimitive.ErdosUniform,
@@ -84,14 +92,15 @@ def neuron_visualize():
         input_connectivity_p=0.5,
         representation="output",
         input_scale=10,
-        input_bias=1,
+        input_bias=0,
         thalmic_primitive=ThalmicPrimitive.Const,
-        thalmic_mean=10,
+        thalmic_mean=-99,
     )
     inputs = rc_model.create_reservoire_input(Xtrain)
+    print(inputs)
     t, states = rc_model.reservoire_states(inputs)
     states = states[0].transpose()
-    for n in range(number_of_neurons):
+    for n in range(2):
         neuron_vals = states[n]
         plt.plot(t, neuron_vals, label="Membrane Potential")[0]
     plt.show()
@@ -102,9 +111,10 @@ if __name__ == "__main__":
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.INFO)
     # neuron_visualize()
-    results = []
-    for i in range(5):
-        res = test_training(i + 100)
-        results.append(res)
+    test_training()
 
-    print(results)
+    # results = []
+    # for i in range(5):
+    #     res = test_training(i + 100)
+    #     results.append(res)
+    # print(results)

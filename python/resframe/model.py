@@ -29,6 +29,10 @@ class RCModel:
         self,
         readout_type="lin",
         representation="last",
+        a=0.02,
+        b=0.2,
+        c=-65.0,
+        d=8.0,
         w_ridge=5,
         w_ridge_embedding=10.0,
         dt=0.05,
@@ -75,7 +79,13 @@ class RCModel:
             thalmic_dev=thalmic_dev,
         )
         self.reservoire = resframe.Reservoire(
-            dt=dt, number_of_neurons=number_of_neurons, variant_chooser=variant_chooser
+            dt=dt,
+            a=a,
+            b=b,
+            c=c,
+            d=d,
+            number_of_neurons=number_of_neurons,
+            variant_chooser=variant_chooser,
         )
 
         # representation
@@ -122,6 +132,7 @@ class RCModel:
                 inputs[i].append(
                     (self.input_delay, self.bias + input_at_time * self.scale)
                 )
+
         return [resframe.InputSteps(run_input) for run_input in inputs]
 
     def reservoire_states_with_times(self, res_inputs):
@@ -148,7 +159,6 @@ class RCModel:
         match self.representation:
             case "last":
                 return red_states[:, -1, :]
-            # TODO: fix this!
             case "output":
                 coeff_tr = []
                 biases_tr = []
@@ -160,7 +170,6 @@ class RCModel:
                     next_inputs = inputs_adjusted[self.n_drop + 1 :, :]
 
                     self._ridge_embedding.fit(current_state, next_inputs)
-
                     coeff_tr.append(self._ridge_embedding.coef_.ravel())
                     biases_tr.append(self._ridge_embedding.intercept_.ravel())
 
@@ -209,6 +218,7 @@ class RCModel:
     def train(self, Xtrain, Ytrain):
         # Gather all the states
         reservoire_inputs = self.create_reservoire_input(Xtrain)
+
         _, all_states = self.reservoire_states(reservoire_inputs)
 
         # TODO: dimensionality reduction
@@ -232,9 +242,13 @@ class RCModel:
 
     def test(self, Xtest, Ytest):
         reservoire_inputs = self.create_reservoire_input(Xtest)
+
         _, all_states = self.reservoire_states(reservoire_inputs)
         representation = self._state_repr(all_states, Xtest)
+
         pred_class = self._predict(representation)
         self._inspect_preditions(pred_class, Ytest)
+
         accuracy, f1 = compute_test_scores(pred_class, Ytest)
+
         return (accuracy, f1)

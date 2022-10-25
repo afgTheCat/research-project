@@ -1,5 +1,4 @@
 use log::info;
-use nalgebra::DMatrix;
 use pyo3::prelude::*;
 use reservoire::izikevich_model::InputStep as InputStepRust;
 use reservoire::izikevich_model::{
