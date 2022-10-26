@@ -34,7 +34,7 @@ def inspect_neuron(res_output, number_of_neurons):
     plt.show()
 
 
-def test_training(thalmic=0):
+def test_training(thalmic_mean=0):
     data = scipy.io.loadmat("./data/JpVow.mat")
     onehot_encoder = OneHotEncoder(sparse=False)
 
@@ -51,11 +51,11 @@ def test_training(thalmic=0):
         erdos_uniform_upper=2,
         input_primitive=InputPrimitive.PercentageConnected,
         input_connectivity_p=1,
-        representation="output",
+        representation="reservoire",
         input_scale=10,
         input_bias=0,
         thalmic_primitive=ThalmicPrimitive.Const,
-        thalmic_mean=-99,
+        thalmic_mean=thalmic_mean * 10,
     )
 
     Xtrain = data["X"]
@@ -69,7 +69,7 @@ def test_training(thalmic=0):
 
     rc_model.train(Xtrain, Ytrain)
     accuracy, f1 = rc_model.test(Xtest, Ytest)
-    print("Accuracy = %.3f, F1 = %.3f" % (accuracy, f1))
+    print(f"Accuracy = {accuracy:.3f}, F1 = {f1:.3f}, thalmic mean = {thalmic_mean}")
     return accuracy
 
 
@@ -97,7 +97,6 @@ def neuron_visualize():
         thalmic_mean=-99,
     )
     inputs = rc_model.create_reservoire_input(Xtrain)
-    print(inputs)
     t, states = rc_model.reservoire_states(inputs)
     states = states[0].transpose()
     for n in range(2):
@@ -110,11 +109,10 @@ if __name__ == "__main__":
     FORMAT = "%(levelname)s %(name)s %(asctime)-15s %(filename)s:%(lineno)d %(message)s"
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.INFO)
-    # neuron_visualize()
     test_training()
 
-    # results = []
-    # for i in range(5):
-    #     res = test_training(i + 100)
-    #     results.append(res)
-    # print(results)
+    results = []
+    for i in range(-1, 1):
+        res = test_training(i)
+        results.append(res)
+    print(results)

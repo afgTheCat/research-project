@@ -87,6 +87,8 @@ class RCModel:
             number_of_neurons=number_of_neurons,
             variant_chooser=variant_chooser,
         )
+        self.times = None
+        self.dt = dt
 
         # representation
         match representation:
@@ -153,6 +155,7 @@ class RCModel:
             )  # [N, States] but the states may have different lenghts
             run_states = np.array(run_states).transpose()
             all_states.append(run_states)  # run_states
+        self.times = t
         return (t, np.array(all_states))
 
     def _state_repr(self, red_states, X):
@@ -163,12 +166,15 @@ class RCModel:
                 coeff_tr = []
                 biases_tr = []
                 current_state = red_states[0, 0:-1, :]
+                states_to_skip = int(self.input_delay / self.dt)
 
-                for i in range(X.shape[0]):
-                    current_state = red_states[i, 0:-1, :]
-                    inputs_adjusted = np.repeat(X[i], int(self.input_delay), axis=0)
-                    next_inputs = inputs_adjusted[self.n_drop + 1 :, :]
-
+                for run in range(X.shape[0]):
+                    current_state = red_states[
+                        run,
+                        0:-states_to_skip:states_to_skip,
+                        :,
+                    ]
+                    next_inputs = X[run][self.n_drop + 1 :, :]
                     self._ridge_embedding.fit(current_state, next_inputs)
                     coeff_tr.append(self._ridge_embedding.coef_.ravel())
                     biases_tr.append(self._ridge_embedding.intercept_.ravel())
@@ -176,12 +182,16 @@ class RCModel:
                 return np.concatenate(
                     (np.vstack(coeff_tr), np.vstack(biases_tr)), axis=1
                 )
+
             case "reservoire":
                 coeff_tr = []
                 biases_tr = []
-                for i in range(X.shape[0]):
+                states_to_skip = int(self.input_delay / self.dt)
+
+                for run in range(X.shape[0]):
                     self._ridge_embedding.fit(
-                        red_states[i, 0:-1, :], red_states[i, 1:, :]
+                        red_states[run, 0:-states_to_skip:states_to_skip, :],
+                        red_states[run, states_to_skip::states_to_skip, :],
                     )
                     coeff_tr.append(self._ridge_embedding.coef_.ravel())
                     biases_tr.append(self._ridge_embedding.intercept_.ravel())
@@ -193,7 +203,7 @@ class RCModel:
                 coeff_tr = []
                 biases_tr = []
                 input_len = int(self.input_delay)
-                for i in range(X.shape[0]):
+                for run in range(X.shape[0]):
                     self._ridge_embedding.fit(
                         red_states[0, 0:-input_len:input_len, :],
                         red_states[0, input_len::input_len, :],
