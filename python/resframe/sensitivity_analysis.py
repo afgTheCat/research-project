@@ -33,6 +33,7 @@ def build_query(
     representation,
     input_scaling,
     thalmic_mean,
+    connectivity_strength,
 ):
     return (
         f"insert into {table_name} ("
@@ -43,7 +44,8 @@ def build_query(
         f"  input_connectivity,"
         f"  representation,"
         f"  input_scaling,"
-        f"  thalmic_mean"
+        f"  thalmic_mean,"
+        f"  connectivity_strength"
         f") values("
         f"  {accuracy},"
         f"  {number_of_neurons},"
@@ -52,7 +54,8 @@ def build_query(
         f"  {input_connectivity},"
         f"  '{representation}',"
         f"  {input_scaling},"
-        f"  {thalmic_mean}"
+        f"  {thalmic_mean},"
+        f"  {connectivity_strength}"
         f");"
     )
 
@@ -67,6 +70,7 @@ def insert_to_db(
     representation,
     input_scaling,
     thalmic_mean,
+    connectivity_strength,
 ):
     q = build_query(
         table_name,
@@ -78,6 +82,7 @@ def insert_to_db(
         representation,
         input_scaling,
         thalmic_mean,
+        connectivity_strength,
     )
     connection = create_connection()
     if connection is not None:
@@ -108,7 +113,6 @@ def search_for_param(input_params):
     accuracy, f1 = rc_model.test(Xtest, Ytest)
 
     erdos_connectivity = input_params["reservoire_parameters"].get("erdos_connectivity")
-    uniform_lower = input_params["reservoire_parameters"].get("erdos_uniform_lower")
     representation = input_params["reservoire_parameters"].get("representation")
     input_scale = input_params["reservoire_parameters"].get("input_scale")
     spectral_radius = input_params["reservoire_parameters"].get("spectral_radius")
@@ -116,6 +120,9 @@ def search_for_param(input_params):
         "input_connectivity_p"
     )
     thalmic_mean = input_params["reservoire_parameters"].get("thalmic_mean")
+    erdos_lower = input_params["reservoire_parameters"].get("erdos_uniform_lower") or 0
+    erdos_upper = input_params["reservoire_parameters"].get("erdos_uniform_upper") or 1
+    connectivity_strength = (erdos_lower + erdos_upper) / 2
 
     insert_to_db(
         table_name,
@@ -127,11 +134,12 @@ def search_for_param(input_params):
         representation,
         input_scale,
         thalmic_mean,
+        connectivity_strength,
     )
     print(
         (
             f"Accuracy = {accuracy:.3f}, F1 = {f1:.3f}, erdos conn: {erdos_connectivity:.3f},",
-            f"uniform lower: {uniform_lower:.3f} input connectivity: {input_connectivity:.3f},",
+            f"uniform lower: {erdos_lower:.3f} input connectivity: {input_connectivity:.3f},",
             f"representation: {representation}, input scale: {input_scale:.3f}",
         )
     )
