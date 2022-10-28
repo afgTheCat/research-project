@@ -168,17 +168,15 @@ def output_sensitivity_plot():
     all_inputs_repeated = np.repeat(all_input, 5)
 
     # save things to the db
-    # resframe.sensitivity_analysis(all_inputs_repeated, "output_sensitivity_test")
+    resframe.sensitivity_analysis(all_inputs_repeated, "output_sensitivity_test")
 
     connection = resframe.create_connection()
     thalmic_query = (
         f"select avg(accuracy), thalmic_mean from {table_name} group by thalmic_mean;"
     )
-    connectivity_query = f"select avg(accuracy), reservoire_connectivity from {table_name} group by reservoire_connectivity;"
-    connection_strength_query = f"select avg(accuracy), connectivity_strength from {table_name} group by connectivity_strength;"
-    input_scale_query = (
-        f"select avg(accuracy), input_scaling from {table_name} group by input_scaling;"
-    )
+    connectivity_query = f"select avg(accuracy), reservoire_connectivity from {table_name} where reservoire_connectivity > 0 group by reservoire_connectivity;"
+    connection_strength_query = f"select avg(accuracy), connectivity_strength from {table_name} where connectivity_strength > 0 group by connectivity_strength;"
+    input_scale_query = f"select avg(accuracy), input_scaling from {table_name} where input_scaling > 0 group by input_scaling;"
 
     if connection is not None:
         cur = connection.cursor()

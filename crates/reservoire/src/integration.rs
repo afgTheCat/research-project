@@ -1,10 +1,10 @@
 use std::iter::repeat_with;
 
-use crate::izikevich_model::{IzikevichModel, IzikevichModelState, ThalmicInput};
+use crate::izikevich_model::{IzhikevichModel, IzhikevichModelState, ThalmicInput};
 use nalgebra::DVector;
 use rand_distr::{Distribution, Normal};
 
-impl IzikevichModel {
+impl IzhikevichModel {
     fn thalmic_input(&self) -> DVector<f64> {
         match self.thalmic_input {
             ThalmicInput::Const(mean) => DVector::zeros(self.number_of_neurons).add_scalar(mean),
@@ -18,7 +18,7 @@ impl IzikevichModel {
         }
     }
 
-    pub fn euler_step(&self, model_state: &mut IzikevichModelState, input_current: &DVector<f64>) {
+    pub fn euler_step(&self, model_state: &mut IzhikevichModelState, input_current: &DVector<f64>) {
         let thalmic_input = self.thalmic_input();
         let firing_neurons = model_state.reset_firing_neurons(self.c, self.d, self.spike_trashhold);
         let adjusted_current = input_current

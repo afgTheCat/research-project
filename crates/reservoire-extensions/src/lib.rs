@@ -2,12 +2,12 @@ use log::info;
 use pyo3::prelude::*;
 use reservoire::izikevich_model::InputStep as InputStepRust;
 use reservoire::izikevich_model::{
-    ConnectivitySetUpType, InitialNetworkStateInit, InputMatrixSetUp, IzikevichModel, ThalmicInput,
+    ConnectivitySetUpType, InitialNetworkStateInit, InputMatrixSetUp, IzhikevichModel, ThalmicInput,
 };
 
 #[pyclass]
 pub struct Reservoire {
-    reservoire: IzikevichModel,
+    reservoire: IzhikevichModel,
 }
 
 #[pyclass]
@@ -258,7 +258,7 @@ impl Reservoire {
         info!("initial network init: {:x?}", network_initialization);
         let thalmic_input = variant_chooser.thalmic_input();
         info!("thalmic input init: {:x?}", thalmic_input);
-        let reservoire = IzikevichModel::new(
+        let reservoire = IzhikevichModel::new(
             a,
             b,
             c,

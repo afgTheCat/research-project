@@ -4,12 +4,12 @@ use rand_distr::Normal;
 use std::iter::repeat_with;
 
 #[derive(Debug, Clone)]
-pub struct IzikevichModelState {
+pub struct IzhikevichModelState {
     membrane_potentials: DVector<f64>,
     membrane_recovery_variables: DVector<f64>,
 }
 
-impl IzikevichModelState {
+impl IzhikevichModelState {
     pub fn reset_firing_neurons(&mut self, c: f64, d: f64, trashhold_value: f64) -> Vec<usize> {
         self.membrane_potentials
             .iter_mut()
@@ -165,7 +165,7 @@ impl InputStep {
 }
 
 #[derive(Debug, Clone)]
-pub struct IzikevichModel {
+pub struct IzhikevichModel {
     pub a: f64,
     pub b: f64,
     pub c: f64,
@@ -250,7 +250,7 @@ pub fn input_vector(number_of_neurons: usize, input_matrix_setup: InputMatrixSet
     }
 }
 
-impl IzikevichModel {
+impl IzhikevichModel {
     pub fn new(
         a: f64,
         b: f64,
@@ -299,10 +299,10 @@ impl IzikevichModel {
         &self,
         input: InputStep,
         current_time: &mut f64,
-        mut current_state: IzikevichModelState,
+        mut current_state: IzhikevichModelState,
         times: &mut Vec<f64>,
-        states: &mut Vec<IzikevichModelState>,
-    ) -> IzikevichModelState {
+        states: &mut Vec<IzhikevichModelState>,
+    ) -> IzhikevichModelState {
         let time_to_stop = *current_time + input.duration;
         let input_current = self.input_current(input);
         while *current_time <= time_to_stop - self.dt {
@@ -317,7 +317,7 @@ impl IzikevichModel {
     pub fn get_states(&self, inputs: Vec<InputStep>) -> (Vec<f64>, Vec<Vec<f64>>) {
         let mut current_time = 0.0;
         let mut times: Vec<f64> = vec![];
-        let mut states: Vec<IzikevichModelState> = vec![];
+        let mut states: Vec<IzhikevichModelState> = vec![];
         let mut current_state = self.init_state();
         for input in inputs {
             current_state = self.integrate_single_time_step(
@@ -342,7 +342,7 @@ impl IzikevichModel {
         (times, neuron_voltages)
     }
 
-    pub fn init_state(&self) -> IzikevichModelState {
+    pub fn init_state(&self) -> IzhikevichModelState {
         match self.network_initialization {
             InitialNetworkStateInit::NoRandomWeight {
                 membrane_potential,
@@ -356,7 +356,7 @@ impl IzikevichModel {
                     self.number_of_neurons,
                     repeat_with(|| recovery_variable).take(self.number_of_neurons),
                 );
-                IzikevichModelState {
+                IzhikevichModelState {
                     membrane_potentials,
                     membrane_recovery_variables,
                 }
@@ -384,7 +384,7 @@ impl IzikevichModel {
                         .take(self.number_of_neurons),
                 );
 
-                IzikevichModelState {
+                IzhikevichModelState {
                     membrane_potentials,
                     membrane_recovery_variables,
                 }

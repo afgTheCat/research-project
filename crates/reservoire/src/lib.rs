@@ -6,7 +6,7 @@ mod test_input;
 mod test {
     use crate::izikevich_model::{
         ConnectivitySetUpType, InitialNetworkStateInit, InputMatrixSetUp, InputStep,
-        IzikevichModel, ThalmicInput,
+        IzhikevichModel, ThalmicInput,
     };
     use crate::test_input::test_input;
 
@@ -29,7 +29,7 @@ mod test {
 
         let thalmic_input = ThalmicInput::Const(10.0);
 
-        let izikevich_model = IzikevichModel::new(
+        let izikevich_model = IzhikevichModel::new(
             a,
             b,
             c,
@@ -65,7 +65,7 @@ mod test {
         };
 
         let thalmic_input = ThalmicInput::Const(-99.0);
-        let izikevich_model = IzikevichModel::new(
+        let izikevich_model = IzhikevichModel::new(
             a,
             b,
             c,

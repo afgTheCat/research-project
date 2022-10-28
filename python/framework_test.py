@@ -109,10 +109,4 @@ if __name__ == "__main__":
     FORMAT = "%(levelname)s %(name)s %(asctime)-15s %(filename)s:%(lineno)d %(message)s"
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.INFO)
-    test_training()
-
-    results = []
-    for i in range(-1, 1):
-        res = test_training(i)
-        results.append(res)
-    print(results)
+    neuron_visualize()
