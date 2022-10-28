@@ -1,6 +1,5 @@
 mod integration;
 pub mod izikevich_model;
-mod test_input;
 
 #[cfg(test)]
 mod test {
@@ -8,7 +7,6 @@ mod test {
         ConnectivitySetUpType, InitialNetworkStateInit, InputMatrixSetUp, InputStep,
         IzhikevichModel, ThalmicInput,
     };
-    use crate::test_input::test_input;
 
     #[test]
     fn reserviore_test() {

@@ -144,10 +144,6 @@ pub struct InputStep {
 }
 
 impl InputStep {
-    fn duration(&self) -> f64 {
-        self.duration
-    }
-
     pub fn vals(&self) -> &DVector<f64> {
         &self.vals
     }
