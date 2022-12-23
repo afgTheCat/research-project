@@ -51,7 +51,8 @@ def test_training(thalmic_mean=0):
         erdos_uniform_upper=2,
         input_primitive=InputPrimitive.PercentageConnected,
         input_connectivity_p=1,
-        representation="reservoire",
+        representation="output",
+        readout="mlp",
         input_scale=10,
         input_bias=0,
         thalmic_primitive=ThalmicPrimitive.Const,
@@ -109,4 +110,5 @@ if __name__ == "__main__":
     FORMAT = "%(levelname)s %(name)s %(asctime)-15s %(filename)s:%(lineno)d %(message)s"
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.INFO)
-    neuron_visualize()
+    # neuron_visualize()
+    test_training()

@@ -1,7 +1,12 @@
 use nalgebra::{ComplexField, DMatrix, DVector};
 use rand::{distributions::Bernoulli, prelude::Distribution, Rng};
 use rand_distr::Normal;
-use std::iter::repeat_with;
+use std::{
+    collections::{HashMap, HashSet},
+    iter::repeat_with,
+};
+
+use crate::heterogenous_model::ConnectionTarget;
 
 #[derive(Debug, Clone)]
 pub struct IzhikevichModelState {
@@ -29,7 +34,6 @@ impl IzhikevichModelState {
     fn dmembrane_potentials(&self, input: &DVector<f64>) -> DVector<f64> {
         let membrane_potentials = &self.membrane_potentials;
         let membrane_recovery_variables = &self.membrane_recovery_variables;
-
         let mut dmembrane_potentials =
             0.04 * membrane_potentials.component_mul(membrane_potentials);
         dmembrane_potentials += 5.0 * membrane_potentials;
@@ -48,7 +52,7 @@ impl IzhikevichModelState {
 }
 
 #[derive(Debug, Clone)]
-pub enum InitialNetworkStateInit {
+pub enum NetworkInit {
     NoRandomWeight {
         membrane_potential: f64,
         recovery_variable: f64,
@@ -88,6 +92,44 @@ pub enum ConnectivitySetUpType {
         connectivity: f64,
         spectral_radius: f64,
     },
+}
+
+impl ConnectivitySetUpType {
+    pub fn connections(&self, num_neurons: usize) -> HashMap<usize, Vec<ConnectionTarget>> {
+        match &self {
+            Self::ErdosLowerUpper {
+                connectivity,
+                lower,
+                upper,
+            } => {
+                let mut bernoulli_rng = rand::thread_rng();
+                let mut uniform_rng = rand::thread_rng();
+                let bernoulli_distr = Bernoulli::new(*connectivity).unwrap();
+                let mut erdos_iter = repeat_with(|| {
+                    if bernoulli_distr.sample(&mut bernoulli_rng) {
+                        uniform_rng.gen_range(*lower..*upper)
+                    } else {
+                        0.0
+                    }
+                });
+                (0..num_neurons)
+                    .map(|index| {
+                        let mut targets = Vec::new();
+                        (0..num_neurons).for_each(|target| {
+                            if target != index {
+                                let connection_weight = erdos_iter.next().unwrap().clone();
+                                if connection_weight != 0.0 {
+                                    targets.push(ConnectionTarget::new(connection_weight, target));
+                                }
+                            }
+                        });
+                        (index, targets)
+                    })
+                    .collect::<HashMap<usize, Vec<ConnectionTarget>>>()
+            }
+            _ => todo!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -172,7 +214,7 @@ pub struct IzhikevichModel {
     pub connectivity_matrix: DMatrix<f64>,
     pub input_vector: Vec<f64>,
     pub thalmic_input: ThalmicInput,
-    network_initialization: InitialNetworkStateInit,
+    network_initialization: NetworkInit,
 }
 
 pub fn connectivity_matrix(
@@ -253,10 +295,10 @@ impl IzhikevichModel {
         c: f64,
         d: f64,
         dt: f64,
-        number_of_neurons: usize,
-        spike_value: f64,
+        number_of_neurons: usize,                  // won't need it! maybe
+        spike_value: f64,                          // won't need it!
         connectivity_setup: ConnectivitySetUpType, // connectivity to the input
-        network_initialization: InitialNetworkStateInit, // the initial states of the network
+        network_init: NetworkInit,                 // the initial states of the network
         input_matrix_setup: InputMatrixSetUp,      // the input of the matrix
         thalmic_input: ThalmicInput,               // thalmic input
     ) -> Self {
@@ -272,7 +314,7 @@ impl IzhikevichModel {
             spike_trashhold: spike_value,
             connectivity_matrix,
             input_vector,
-            network_initialization,
+            network_initialization: network_init,
             thalmic_input,
         }
     }
@@ -340,7 +382,7 @@ impl IzhikevichModel {
 
     pub fn init_state(&self) -> IzhikevichModelState {
         match self.network_initialization {
-            InitialNetworkStateInit::NoRandomWeight {
+            NetworkInit::NoRandomWeight {
                 membrane_potential,
                 recovery_variable,
             } => {
@@ -357,7 +399,7 @@ impl IzhikevichModel {
                     membrane_recovery_variables,
                 }
             }
-            InitialNetworkStateInit::NormalWeight {
+            NetworkInit::NormalWeight {
                 membrane_potential,
                 recovery_variable,
                 membrane_potential_deviation,

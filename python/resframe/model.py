@@ -27,7 +27,7 @@ def compute_test_scores(pred_class, Yte):
 class RCModel:
     def __init__(
         self,
-        readout_type="lin",
+        readout="lin",
         representation="last",
         a=0.02,
         b=0.2,
@@ -105,8 +105,8 @@ class RCModel:
                 )
 
         # readout
-        self.readout_type = readout_type
-        match readout_type:
+        self.readout_type = readout
+        match readout:
             case "lin":
                 self.readout = Ridge(alpha=w_ridge)
             case "mlp":
@@ -224,6 +224,8 @@ class RCModel:
         match self.readout_type:
             case "lin":
                 self.readout.fit(representation, Y)
+            case "mlp":
+                self.readout.fit(representation, Y)
 
     def train(self, Xtrain, Ytrain):
         # Gather all the states
@@ -244,6 +246,9 @@ class RCModel:
             case "lin":
                 logits = self.readout.predict(representation)
                 return np.argmax(logits, axis=1)
+            case "mlp":
+                pred_class = self.readout.predict(representation)
+                return np.argmax(pred_class, axis=1)
             case readout:
                 raise RuntimeError(f"readout {readout} not implemented")
 

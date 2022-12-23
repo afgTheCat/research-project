@@ -2,7 +2,7 @@ use log::info;
 use pyo3::prelude::*;
 use reservoire::izikevich_model::InputStep as InputStepRust;
 use reservoire::izikevich_model::{
-    ConnectivitySetUpType, InitialNetworkStateInit, InputMatrixSetUp, IzhikevichModel, ThalmicInput,
+    ConnectivitySetUpType, InputMatrixSetUp, IzhikevichModel, NetworkInit, ThalmicInput,
 };
 
 #[pyclass]
@@ -139,13 +139,13 @@ impl VariantChooser {
         }
     }
 
-    fn network_initialization(&self) -> InitialNetworkStateInit {
+    fn network_initialization(&self) -> NetworkInit {
         match self.network_init_primitive {
-            NetworkInitPrimitive::NoRandomWeight => InitialNetworkStateInit::NoRandomWeight {
+            NetworkInitPrimitive::NoRandomWeight => NetworkInit::NoRandomWeight {
                 membrane_potential: self.network_membrane_potential,
                 recovery_variable: self.network_recovery_variable,
             },
-            NetworkInitPrimitive::NormalRandomWeight => InitialNetworkStateInit::NormalWeight {
+            NetworkInitPrimitive::NormalRandomWeight => NetworkInit::NormalWeight {
                 membrane_potential: self.network_membrane_potential,
                 recovery_variable: self.network_recovery_variable,
                 membrane_potential_deviation: self.network_membrane_potential_dev,
