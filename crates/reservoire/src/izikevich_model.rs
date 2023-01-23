@@ -346,6 +346,7 @@ impl IzhikevichModel {
             .map(|x| *x)
             .cycle()
             .take(self.number_of_neurons * input_size);
+
         let input_matrix =
             DMatrix::from_iterator(self.number_of_neurons, input_size, row_vectors_iter);
 
@@ -376,6 +377,7 @@ impl IzhikevichModel {
         let mut times: Vec<f64> = vec![];
         let mut states: Vec<IzhikevichModelState> = vec![];
         let mut current_state = self.init_state();
+
         for input in inputs {
             current_state = self.integrate_single_time_step(
                 input,

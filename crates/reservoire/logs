@@ -1,5 +1,51 @@
+   Compiling reservoire v0.1.0 (/home/afgthecat/projects/tokyo/research-project/crates/reservoire)
+warning: unused import: `rand::distributions::weighted`
+ --> src/heterogenous_model.rs:3:5
+  |
+3 | use rand::distributions::weighted;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: use of deprecated module `rand::distributions::weighted`: use rand::distributions::{WeightedIndex, WeightedError} instead
+ --> src/heterogenous_model.rs:3:26
+  |
+3 | use rand::distributions::weighted;
+  |                          ^^^^^^^^
+  |
+  = note: `#[warn(deprecated)]` on by default
+
+warning: fields `weight` and `target` are never read
+ --> src/izikevich_model.rs:8:5
+  |
+7 | pub struct ConnectionTarget {
+  |            ---------------- fields in this struct
+8 |     weight: f64,
+  |     ^^^^^^
+9 |     target: usize,
+  |     ^^^^^^
+  |
+  = note: `ConnectionTarget` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+  = note: `#[warn(dead_code)]` on by default
+
+warning: associated function `weight` is never used
+  --> src/izikevich_model.rs:17:8
+   |
+17 |     fn weight(&self) -> f64 {
+   |        ^^^^^^
+
+warning: associated function `target` is never used
+  --> src/izikevich_model.rs:21:8
+   |
+21 |     fn target(&self) -> usize {
+   |        ^^^^^^
+
+warning: `reservoire` (lib test) generated 5 warnings (run `cargo fix --lib -p reservoire --tests` to apply 1 suggestion)
+    Finished test [unoptimized + debuginfo] target(s) in 0.86s
+     Running unittests src/lib.rs (target/debug/deps/reservoire-fc6a94f6cdd4f073)
+
 running 1 test
-[2023-01-23T07:11:31Z INFO  reservoire::test] states: [
+[2023-01-23T08:52:43Z INFO  reservoire::test] states: [
         (
             0.0,
             [],
@@ -34,9 +80,7 @@ running 1 test
         ),
         (
             4.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             4.5,
@@ -216,9 +260,7 @@ running 1 test
         ),
         (
             26.5,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             27.0,
@@ -598,9 +640,7 @@ running 1 test
         ),
         (
             74.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             74.5,
@@ -984,9 +1024,7 @@ running 1 test
         ),
         (
             122.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             122.5,
@@ -1370,9 +1408,7 @@ running 1 test
         ),
         (
             170.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             170.5,
@@ -1756,9 +1792,7 @@ running 1 test
         ),
         (
             218.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             218.5,
@@ -2134,9 +2168,7 @@ running 1 test
         ),
         (
             265.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             265.5,
@@ -2512,9 +2544,7 @@ running 1 test
         ),
         (
             312.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             312.5,
@@ -2894,9 +2924,7 @@ running 1 test
         ),
         (
             359.5,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             360.0,
@@ -3268,9 +3296,7 @@ running 1 test
         ),
         (
             406.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             406.5,
@@ -3642,9 +3668,7 @@ running 1 test
         ),
         (
             452.5,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             453.0,
@@ -4016,9 +4040,7 @@ running 1 test
         ),
         (
             499.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             499.5,
@@ -4394,9 +4416,7 @@ running 1 test
         ),
         (
             546.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             546.5,
@@ -4780,9 +4800,7 @@ running 1 test
         ),
         (
             594.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             594.5,
@@ -5158,9 +5176,7 @@ running 1 test
         ),
         (
             641.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             641.5,
@@ -5536,9 +5552,7 @@ running 1 test
         ),
         (
             688.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             688.5,
@@ -5918,9 +5932,7 @@ running 1 test
         ),
         (
             735.5,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             736.0,
@@ -6296,9 +6308,7 @@ running 1 test
         ),
         (
             782.5,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             783.0,
@@ -6674,9 +6684,7 @@ running 1 test
         ),
         (
             829.5,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             830.0,
@@ -7048,9 +7056,7 @@ running 1 test
         ),
         (
             876.0,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             876.5,
@@ -7422,9 +7428,7 @@ running 1 test
         ),
         (
             922.5,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             923.0,
@@ -7800,9 +7804,7 @@ running 1 test
         ),
         (
             969.5,
-            [
-                0x0,
-            ],
+            [],
         ),
         (
             970.0,

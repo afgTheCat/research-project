@@ -5,7 +5,7 @@ pub mod izikevich_model;
 #[cfg(test)]
 mod test {
     use crate::{
-        heterogenous_model::{HeterogenousInputStep, HeterogenousReserviore},
+        heterogenous_model::{HeterogenousReserviore, InputStepHeterogenous},
         izikevich_model::{
             ConnectivitySetUpType, InputMatrixSetUp, InputStepHomogenous, IzhikevichModel,
             NetworkInit, ThalmicInput,
@@ -51,10 +51,10 @@ mod test {
     fn heterogenous_model() {
         let _ = env_logger::try_init();
 
-        let mut heterogenous_model = HeterogenousReserviore::new(1, 0.5);
+        let mut heterogenous_model = HeterogenousReserviore::new(10, 0.5);
 
         // we basically want to check if things work
-        let input = vec![HeterogenousInputStep::new(0.5, vec![10.0]); 2000];
+        let input = vec![InputStepHeterogenous::new(0.5, vec![10.0]); 2000];
         let states = heterogenous_model.integrate_network(input);
         log::info!("states: {:#x?}", states);
     }

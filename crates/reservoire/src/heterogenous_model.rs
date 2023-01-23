@@ -1,6 +1,8 @@
+use rand_distr::{Bernoulli, Distribution};
 use std::{collections::HashMap, ops::Range};
 
 type NeuronId = usize;
+type InputId = usize;
 
 #[derive(Debug, Clone)]
 pub struct NeuronParameters {
@@ -60,6 +62,7 @@ impl Neuron {
     }
 }
 
+#[derive(Debug, Clone)]
 struct SynapticConnection {
     target: NeuronId,
     weight: f64,
@@ -80,12 +83,12 @@ impl SynapticConnection {
 }
 
 #[derive(Debug, Clone)]
-pub struct HeterogenousInputStep {
+pub struct InputStepHeterogenous {
     duration: f64,
     input: Vec<f64>, // should contain all neurons
 }
 
-impl HeterogenousInputStep {
+impl InputStepHeterogenous {
     pub fn new(duration: f64, input: Vec<f64>) -> Self {
         Self { duration, input }
     }
@@ -93,15 +96,32 @@ impl HeterogenousInputStep {
     fn duration(&self) -> f64 {
         self.duration
     }
+
+    pub fn input(&self) -> &[f64] {
+        self.input.as_ref()
+    }
 }
 
 struct NetworParameters {
+    pub input_layer_connections: HashMap<InputId, Vec<SynapticConnection>>,
+    pub input_layer_connectivity: f64,
     pub dt: f64,
 }
 
 impl NetworParameters {
     fn new(dt: f64) -> Self {
-        Self { dt }
+        Self {
+            dt,
+            input_layer_connectivity: 0.1,
+            input_layer_connections: HashMap::new(),
+        }
+    }
+
+    fn push_input(&mut self, input_id: InputId, connection: SynapticConnection) {
+        self.input_layer_connections
+            .entry(input_id)
+            .and_modify(|cv| cv.push(connection.clone()))
+            .or_insert(vec![connection]);
     }
 }
 
@@ -146,16 +166,35 @@ impl HeterogenousReserviore {
             .collect()
     }
 
+    fn create_input(&self, input_step: InputStepHeterogenous) -> Vec<f64> {
+        let mut inputs = vec![0.0; self.number_of_neurons()];
+        for (input_id, input) in input_step.input().into_iter().enumerate() {
+            if let Some(input_connections) = self
+                .network_parameters
+                .input_layer_connections
+                .get(&input_id)
+            {
+                for connection in input_connections {
+                    let target = connection.target();
+                    let weight = connection.weight();
+
+                    inputs[target] += input * weight
+                }
+            }
+        }
+        inputs
+    }
+
     fn integrate_network_input_step(
         &mut self,
-        input_step: HeterogenousInputStep,
+        input_step: InputStepHeterogenous,
         mut time: f64,
         mut firing_neurons: Vec<NeuronId>,
         state_collector: &mut Vec<(f64, Vec<NeuronId>)>,
     ) -> (f64, Vec<NeuronId>) {
         let mut input_step_firings: Vec<(f64, Vec<NeuronId>)> = vec![];
         let end_time = time + input_step.duration();
-        let mut input = input_step.input.clone();
+        let mut input = self.create_input(input_step);
 
         while time < end_time {
             for neuron_id in self.neuron_ids() {
@@ -180,13 +219,31 @@ impl HeterogenousReserviore {
         (time, firing_neurons)
     }
 
+    pub fn setup_input_connections(&mut self, inputs: &[InputStepHeterogenous]) {
+        self.network_parameters.input_layer_connections = HashMap::new();
+        let input_len = inputs[0].input().len();
+        let mut bernoulli_rng = rand::thread_rng();
+        let bernoulli_distr =
+            Bernoulli::new(self.network_parameters.input_layer_connectivity).unwrap();
+        for input in 0..input_len {
+            for neuron in 0..self.number_of_neurons() {
+                if bernoulli_distr.sample(&mut bernoulli_rng) {
+                    self.network_parameters
+                        .push_input(input, SynapticConnection::new(neuron, 1.0))
+                }
+            }
+        }
+    }
+
     pub fn integrate_network(
         &mut self,
-        inputs: Vec<HeterogenousInputStep>,
+        inputs: Vec<InputStepHeterogenous>,
     ) -> Vec<(f64, Vec<NeuronId>)> {
         // we should add the input to the firings
         let mut state_collector: Vec<(f64, Vec<NeuronId>)> = vec![];
         let mut firing_neurons: Vec<NeuronId> = vec![];
+        self.setup_input_connections(&inputs);
+
         let mut time = 0_f64;
         for input in inputs {
             (time, firing_neurons) =
@@ -220,6 +277,3 @@ impl HeterogenousReserviore {
         }
     }
 }
-
-#[cfg(test)]
-mod test {}
