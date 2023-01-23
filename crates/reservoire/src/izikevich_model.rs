@@ -1,12 +1,27 @@
 use nalgebra::{ComplexField, DMatrix, DVector};
 use rand::{distributions::Bernoulli, prelude::Distribution, Rng};
 use rand_distr::Normal;
-use std::{
-    collections::{HashMap, HashSet},
-    iter::repeat_with,
-};
+use std::{collections::HashMap, iter::repeat_with};
 
-use crate::heterogenous_model::ConnectionTarget;
+#[derive(Debug, Clone)]
+pub struct ConnectionTarget {
+    weight: f64,
+    target: usize,
+}
+
+impl ConnectionTarget {
+    pub fn new(weight: f64, target: usize) -> Self {
+        Self { weight, target }
+    }
+
+    fn weight(&self) -> f64 {
+        self.weight
+    }
+
+    fn target(&self) -> usize {
+        self.target
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct IzhikevichModelState {
@@ -180,12 +195,12 @@ fn create_erdos_normal_connectivity_matrix(
 }
 
 #[derive(Debug, Clone)]
-pub struct InputStep {
+pub struct InputStepHomogenous {
     duration: f64,
-    vals: DVector<f64>, // now this is going to be the hardest one yet!
+    vals: DVector<f64>,
 }
 
-impl InputStep {
+impl InputStepHomogenous {
     pub fn vals(&self) -> &DVector<f64> {
         &self.vals
     }
@@ -199,6 +214,10 @@ impl InputStep {
             duration,
             vals: DVector::from_vec(vals),
         }
+    }
+
+    pub fn duration(&self) -> f64 {
+        self.duration
     }
 }
 
@@ -319,7 +338,7 @@ impl IzhikevichModel {
         }
     }
 
-    pub fn input_current(&self, input: InputStep) -> DVector<f64> {
+    pub fn input_current(&self, input: InputStepHomogenous) -> DVector<f64> {
         let input_size = input.input_size();
         let row_vectors_iter = self
             .input_vector
@@ -335,7 +354,7 @@ impl IzhikevichModel {
 
     fn integrate_single_time_step(
         &self,
-        input: InputStep,
+        input: InputStepHomogenous,
         current_time: &mut f64,
         mut current_state: IzhikevichModelState,
         times: &mut Vec<f64>,
@@ -352,7 +371,7 @@ impl IzhikevichModel {
         current_state
     }
 
-    pub fn get_states(&self, inputs: Vec<InputStep>) -> (Vec<f64>, Vec<Vec<f64>>) {
+    pub fn get_states(&self, inputs: Vec<InputStepHomogenous>) -> (Vec<f64>, Vec<Vec<f64>>) {
         let mut current_time = 0.0;
         let mut times: Vec<f64> = vec![];
         let mut states: Vec<IzhikevichModelState> = vec![];

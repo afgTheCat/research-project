@@ -1,211 +1,222 @@
-use crate::izikevich_model::ConnectivitySetUpType;
-use std::collections::{HashMap, HashSet};
+use std::{collections::HashMap, ops::Range};
 
-const DT: f64 = 0.05;
+type NeuronId = usize;
 
-struct Connection {
-    target: usize,
-    weight: f64,
-    delay: usize,
+#[derive(Debug, Clone)]
+pub struct NeuronParameters {
+    pub a: f64,
+    pub b: f64,
+    pub c: f64,
+    pub d: f64,
 }
 
-pub struct Parameters {
-    a: f64,
-    b: f64,
-    c: f64,
-    d: f64,
-}
-
-impl Parameters {
+impl NeuronParameters {
     pub fn new(a: f64, b: f64, c: f64, d: f64) -> Self {
         Self { a, b, c, d }
     }
+}
 
-    fn c(&self) -> f64 {
-        self.c
-    }
-
-    fn b(&self) -> f64 {
-        self.b
-    }
-
-    fn a(&self) -> f64 {
-        self.a
-    }
-
-    fn d(&self) -> f64 {
-        self.d
+impl Default for NeuronParameters {
+    fn default() -> Self {
+        Self {
+            a: 0.02,
+            b: 0.2,
+            c: -65.0,
+            d: 8.0,
+        }
     }
 }
 
-struct Neuron {
-    // The current state of the neuron
-    v: f64,
-    u: f64,
-    // The input current to the neuron
-    input: f64,
-    // The parameters of the neuron
-    parameters: Parameters,
+/// An Izikevich neuron with it's parameters and inner state
+#[derive(Debug, Clone)]
+pub struct Neuron {
+    pub v: f64,
+    pub u: f64,
+    parameters: NeuronParameters,
 }
 
 impl Neuron {
-    fn new(parameters: Parameters) -> Self {
+    fn new(parameters: NeuronParameters) -> Self {
         Self {
             v: parameters.c,
             u: parameters.b * parameters.c,
-            input: 0.0,
-            // incoming,
-            // outgoing,
             parameters,
         }
     }
 
-    fn a(&self) -> f64 {
-        self.parameters.a()
-    }
-
-    fn b(&self) -> f64 {
-        self.parameters.b()
-    }
-
-    fn c(&self) -> f64 {
-        self.parameters.c()
-    }
-
-    fn d(&self) -> f64 {
-        self.parameters.d()
-    }
-
-    fn integrate(&mut self) {
+    pub fn integrate(&mut self, input: f64, dt: f64) -> bool {
         // Izikevich model
-        self.v += DT * (0.04 * self.v * self.v + 5.0 * self.v + 140.0 - self.u + self.input);
-        self.u += DT * self.a() * (self.b() * self.v - self.u);
-    }
+        self.v += dt * (0.04 * self.v * self.v + 5.0 * self.v + 140.0 - self.u + input);
+        self.u += dt * self.parameters.a * (self.parameters.b * self.v - self.u);
 
-    // fires and deplete it
-    fn fires(&mut self) -> bool {
-        if self.v >= 30.0 {
-            self.v = self.c();
-            self.u += self.d();
+        if self.v >= 35.0 {
+            self.v = self.parameters.c;
+            self.u += self.parameters.d;
+
             true
         } else {
             false
         }
     }
-
-    fn adjust_v(&mut self, input: f64) {
-        self.v += input
-    }
 }
 
-struct NeuronWithConnection {
-    neuron: Neuron,
-    connection: Vec<ConnectionTarget>,
-}
-
-impl NeuronWithConnection {
-    fn new(neuron: Neuron, connection: Vec<ConnectionTarget>) -> Self {
-        Self { neuron, connection }
-    }
-
-    fn integrate(&mut self) {
-        self.neuron.integrate()
-    }
-
-    fn fire(&mut self) -> Option<&Vec<ConnectionTarget>> {
-        if self.neuron.fires() {
-            Some(&self.connection)
-        } else {
-            None
-        }
-    }
-
-    fn adjust_v(&mut self, input: f64) {
-        self.neuron.adjust_v(input)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Input {
-    duration: f64,
-    vals: Vec<f64>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ConnectionTarget {
+struct SynapticConnection {
+    target: NeuronId,
     weight: f64,
-    target: usize,
 }
 
-impl ConnectionTarget {
-    pub fn new(weight: f64, target: usize) -> Self {
-        Self { weight, target }
-    }
-
-    fn weight(&self) -> f64 {
-        self.weight
+impl SynapticConnection {
+    fn new(target: NeuronId, weight: f64) -> Self {
+        Self { target, weight }
     }
 
     fn target(&self) -> usize {
         self.target
     }
+
+    fn weight(&self) -> f64 {
+        self.weight
+    }
 }
 
-type ConnectionGraph = HashMap<usize, Vec<ConnectionTarget>>;
-
-pub struct Network {
-    neurons: HashMap<usize, NeuronWithConnection>,
+#[derive(Debug, Clone)]
+pub struct HeterogenousInputStep {
+    duration: f64,
+    input: Vec<f64>, // should contain all neurons
 }
 
-impl Network {
-    pub fn new(parameters: Vec<Parameters>, connectivity_setup: ConnectivitySetUpType) {
-        let mut neurons_with_con = HashMap::new();
-        let number_of_neurons = parameters.len();
-        let connections = connectivity_setup.connections(number_of_neurons);
-
-        for (id, p) in parameters.into_iter().enumerate() {
-            let neuron = Neuron::new(p);
-            let connections = connections.get(&id).cloned().unwrap_or(vec![]);
-            let neuron_with_con = NeuronWithConnection::new(neuron, connections);
-            neurons_with_con.insert(id, neuron_with_con);
-        }
+impl HeterogenousInputStep {
+    pub fn new(duration: f64, input: Vec<f64>) -> Self {
+        Self { duration, input }
     }
 
-    fn integrate(&mut self) {
-        for neuron in self.neurons.values_mut() {
-            neuron.integrate()
-        }
+    fn duration(&self) -> f64 {
+        self.duration
+    }
+}
+
+struct NetworParameters {
+    pub dt: f64,
+}
+
+impl NetworParameters {
+    fn new(dt: f64) -> Self {
+        Self { dt }
+    }
+}
+
+pub struct HeterogenousReserviore {
+    network_parameters: NetworParameters,
+
+    // the neurons in the network
+    neurons: Vec<Neuron>,
+
+    // neuron and what it connects to
+    connections: HashMap<NeuronId, Vec<SynapticConnection>>,
+}
+
+impl HeterogenousReserviore {
+    fn number_of_neurons(&self) -> usize {
+        self.neurons.len()
     }
 
-    fn fire(&mut self) {
-        let spikes = self
-            .neurons
-            .values_mut()
-            .filter_map(|neuron| {
-                neuron.fire().and_then(|connections| {
-                    let connections = connections
-                        .iter()
-                        .map(|connection| (connection.target, connection.weight))
-                        .collect::<Vec<_>>();
-                    Some(connections)
-                })
+    fn neuron_ids(&self) -> Range<NeuronId> {
+        0..self.number_of_neurons()
+    }
+
+    fn neuron_targeting(&self, neuron: NeuronId) -> impl Iterator<Item = &SynapticConnection> {
+        self.connections
+            .get(&neuron)
+            .and_then(|conn| Some(conn.iter()))
+            .or_else(|| Some([].iter()))
+            .unwrap()
+    }
+
+    fn neurons_firing(&mut self, input: Vec<f64>) -> Vec<NeuronId> {
+        input
+            .into_iter()
+            .enumerate()
+            .filter_map(|(neuron_id, input)| {
+                if self.neurons[neuron_id].integrate(input, self.network_parameters.dt) {
+                    Some(neuron_id)
+                } else {
+                    None
+                }
             })
-            .flatten()
-            .collect::<Vec<_>>();
-
-        for (dest, weight) in spikes {
-            // unwrap should never fail
-            self.neurons.get_mut(&dest).unwrap().adjust_v(weight)
-        }
+            .collect()
     }
 
-    fn integrate_and_fire(&mut self, num_step: u64) {
-        let mut t = 0_f64;
+    fn integrate_network_input_step(
+        &mut self,
+        input_step: HeterogenousInputStep,
+        mut time: f64,
+        mut firing_neurons: Vec<NeuronId>,
+        state_collector: &mut Vec<(f64, Vec<NeuronId>)>,
+    ) -> (f64, Vec<NeuronId>) {
+        let mut input_step_firings: Vec<(f64, Vec<NeuronId>)> = vec![];
+        let end_time = time + input_step.duration();
+        let mut input = input_step.input.clone();
 
-        for _ in 0..num_step {
-            t += DT;
-            self.integrate();
-            self.fire();
+        while time < end_time {
+            for neuron_id in self.neuron_ids() {
+                if firing_neurons.contains(&neuron_id) {
+                    for synaptic_conn in self.neuron_targeting(neuron_id) {
+                        let target = synaptic_conn.target();
+                        let weight = synaptic_conn.weight();
+
+                        input[target] += weight;
+                    }
+                }
+            }
+
+            firing_neurons = self.neurons_firing(input);
+            input_step_firings.push((time, firing_neurons.clone()));
+
+            input = vec![0_f64; self.number_of_neurons()];
+            time += self.network_parameters.dt;
+        }
+
+        state_collector.extend_from_slice(&input_step_firings);
+        (time, firing_neurons)
+    }
+
+    pub fn integrate_network(
+        &mut self,
+        inputs: Vec<HeterogenousInputStep>,
+    ) -> Vec<(f64, Vec<NeuronId>)> {
+        // we should add the input to the firings
+        let mut state_collector: Vec<(f64, Vec<NeuronId>)> = vec![];
+        let mut firing_neurons: Vec<NeuronId> = vec![];
+        let mut time = 0_f64;
+        for input in inputs {
+            (time, firing_neurons) =
+                self.integrate_network_input_step(input, time, firing_neurons, &mut state_collector)
+        }
+        state_collector
+    }
+
+    // will need more paramters
+    pub fn new(number_of_neurons: usize, dt: f64) -> Self {
+        let network_parameters = NetworParameters::new(dt);
+        let neurons = vec![Neuron::new(NeuronParameters::default()); number_of_neurons];
+        let connections = (0..number_of_neurons)
+            .map(|neuron_id| {
+                let connections = (0..number_of_neurons)
+                    .filter_map(|target| {
+                        if target != neuron_id {
+                            Some(SynapticConnection::new(target, 1.0))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                (neuron_id, connections)
+            })
+            .collect::<HashMap<_, _>>();
+        Self {
+            network_parameters,
+            neurons,
+            connections,
         }
     }
 }

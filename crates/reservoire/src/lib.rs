@@ -5,10 +5,10 @@ pub mod izikevich_model;
 #[cfg(test)]
 mod test {
     use crate::{
-        heterogenous_model::{Network, Parameters},
+        heterogenous_model::{HeterogenousInputStep, HeterogenousReserviore},
         izikevich_model::{
-            ConnectivitySetUpType, InputMatrixSetUp, InputStep, IzhikevichModel, NetworkInit,
-            ThalmicInput,
+            ConnectivitySetUpType, InputMatrixSetUp, InputStepHomogenous, IzhikevichModel,
+            NetworkInit, ThalmicInput,
         },
     };
 
@@ -42,21 +42,20 @@ mod test {
             input_matrix_setup,
             thalmic_input,
         );
-        let inputs = vec![InputStep::new(10.0, vec![0.5; 20]); 2];
+        let inputs = vec![InputStepHomogenous::new(10.0, vec![0.5; 20]); 2];
         let states = izikevich_model.get_states(inputs);
         log::info!("states: {:#x?}", states);
     }
 
     #[test]
-    fn heterogenous_mode() {
+    fn heterogenous_model() {
         let _ = env_logger::try_init();
-        let (a, b, c, d) = (0.02, 0.2, -65.0, 8.0);
-        let parameters = vec![Parameters::new(a, b, c, d)];
-        let connectivity_setup = ConnectivitySetUpType::ErdosLowerUpper {
-            connectivity: 0.3,
-            lower: 0.0,
-            upper: 2.0,
-        };
-        let network = Network::new(parameters, connectivity_setup);
+
+        let mut heterogenous_model = HeterogenousReserviore::new(1, 0.5);
+
+        // we basically want to check if things work
+        let input = vec![HeterogenousInputStep::new(0.5, vec![10.0]); 2000];
+        let states = heterogenous_model.integrate_network(input);
+        log::info!("states: {:#x?}", states);
     }
 }
