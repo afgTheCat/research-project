@@ -2,8 +2,15 @@ import resframe
 import scipy.io
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
-from resframe import InputPrimitive, ThalmicPrimitive
+from resframe import (
+    InputPrimitive,
+    ThalmicPrimitive,
+    NetworkInitPrimitive,
+    ConnectivityPrimitive,
+)
 import logging
+import numpy as np
+from typing import Tuple
 
 
 def create_input_steps(X):
@@ -25,7 +32,7 @@ def create_all_inputs(X):
     return [resframe.InputSteps(run_input) for run_input in inputs]
 
 
-def inspect_neuron(res_output, number_of_neurons):
+def inspect_neuron(res_output: Tuple[float, np.ndarray], number_of_neurons: int):
     plt.figure()
     time, neuron_list = res_output
     for n in range(number_of_neurons):
@@ -39,7 +46,7 @@ def test_training(thalmic_mean=0):
     onehot_encoder = OneHotEncoder(sparse=False)
 
     rc_model = resframe.RCModel(
-        dt=0.5,
+        dt=0.0005,
         a=0.2,
         b=2,
         c=-56,
@@ -79,7 +86,7 @@ def neuron_visualize():
     Xtrain = data["X"][0:1]
     number_of_neurons = 100
     rc_model = resframe.RCModel(
-        dt=0.1,
+        dt=0.5,
         a=0.2,
         b=2.0,
         c=-56.0,
@@ -106,9 +113,32 @@ def neuron_visualize():
     plt.show()
 
 
+def neuron_with_const_input():
+    rc_model = resframe.RCModel(
+        a=0.02,
+        b=0.2,
+        c=-65,
+        d=8,
+        dt=0.05,
+        input_primitive=InputPrimitive.PercentageConnected,
+        input_connectivity_p=1,
+        number_of_neurons=1,
+        thalmic_primitive=ThalmicPrimitive.Const,
+        thalmic_mean=0,
+        network_init_primitive=NetworkInitPrimitive.NoRandomWeight,
+        connectivity_primitive=ConnectivityPrimitive.ErdosUniform,
+        erdos_uniform_lower=1.0,
+        erdos_uniform_upper=1.0,
+    )
+    inp = resframe.InputSteps([(1000, [10])])
+    output = rc_model.reservoire_states([inp])
+    inspect_neuron(output, 1)
+
+
 if __name__ == "__main__":
     FORMAT = "%(levelname)s %(name)s %(asctime)-15s %(filename)s:%(lineno)d %(message)s"
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.INFO)
-    neuron_visualize()
+    neuron_with_const_input()
+    # neuron_visualize()
     # test_training()

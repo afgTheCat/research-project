@@ -1,3 +1,4 @@
+use log::info;
 use nalgebra::{ComplexField, DMatrix, DVector};
 use rand::{distributions::Bernoulli, prelude::Distribution, Rng};
 use rand_distr::Normal;
