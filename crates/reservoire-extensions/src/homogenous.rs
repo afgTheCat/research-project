@@ -1,4 +1,4 @@
-use crate::input_step::InputSteps;
+use crate::input_step::InputStepsHomogenous;
 use log::info;
 use pyo3::prelude::*;
 use reservoire::izikevich_model::{
@@ -249,7 +249,7 @@ impl HomogenousReservoire {
         Self { reservoire }
     }
 
-    fn get_states(&self, input: InputSteps) -> (Vec<f64>, Vec<Vec<f64>>) {
+    fn get_states(&self, input: InputStepsHomogenous) -> (Vec<f64>, Vec<Vec<f64>>) {
         self.reservoire.get_states(input.input_steps)
     }
 }

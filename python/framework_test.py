@@ -19,7 +19,7 @@ def create_input_steps(X):
         greater_then_delta = any(t > 0.1)
         if greater_then_delta:
             inputs.append((25.0, 1 + t * 10.0))
-    return resframe.InputSteps(inputs)
+    return resframe.InputStepsHomogenous(inputs)
 
 
 def create_all_inputs(X):
@@ -29,7 +29,7 @@ def create_all_inputs(X):
         current_input = X[:, t, :]
         for i, input_at_time in enumerate(current_input):
             inputs[i].append((25.0, input_at_time))
-    return [resframe.InputSteps(run_input) for run_input in inputs]
+    return [resframe.InputStepsHomogenous(run_input) for run_input in inputs]
 
 
 def inspect_neuron(res_output: Tuple[float, np.ndarray], number_of_neurons: int):
@@ -114,7 +114,7 @@ def neuron_visualize():
 
 
 def homogenous_with_const_input():
-    rc_model = resframe.RCModelHeterogenous(
+    rc_model = resframe.RCModelHomogenous(
         a=0.02,
         b=0.2,
         c=-65,
@@ -130,18 +130,23 @@ def homogenous_with_const_input():
         erdos_uniform_lower=1.0,
         erdos_uniform_upper=1.0,
     )
-    inp = resframe.InputStepsHomogenous([(1000, [10])])
+    inp = resframe.InputStepsHomogenous([(1000, [0])])
     output = rc_model.reservoire_states([inp])
     inspect_neuron(output, 1)
 
 
-# def heterogenous_with_const_input():
+def heterogenous_with_const_input():
+    rc_model = resframe.RCModelHeterogenous(1, 0.05)
+    inp = resframe.InputStepsHeterogenous([(1000, [10])])
+    output = rc_model.reservoire_states([inp])
+    inspect_neuron(output, 1)
 
 
 if __name__ == "__main__":
     FORMAT = "%(levelname)s %(name)s %(asctime)-15s %(filename)s:%(lineno)d %(message)s"
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.INFO)
-    homogenous_with_const_input()
+    heterogenous_with_const_input()
+    # homogenous_with_const_input()
     # neuron_visualize()
     # test_training()

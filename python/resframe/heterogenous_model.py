@@ -1,12 +1,6 @@
 import resframe
 from sklearn.linear_model import Ridge
 from sklearn.neural_network import MLPClassifier
-from resframe import (
-    InputPrimitive,
-    NetworkInitPrimitive,
-    ConnectivityPrimitive,
-    ThalmicPrimitive,
-)
 import numpy as np
 from sklearn.metrics import accuracy_score, f1_score
 
@@ -24,71 +18,21 @@ def compute_test_scores(pred_class, Yte):
     return accuracy, f1
 
 
-class RCModelHomogenous:
+class RCModelHeterogenous:
     def __init__(
         self,
-        readout="lin",
+        number_of_neurons,
+        dt,
         representation="last",
-        a=0.02,
-        b=0.2,
-        c=-65.0,
-        d=8.0,
+        readout="lin",
         w_ridge=5,
         w_ridge_embedding=10.0,
-        dt=0.05,
-        number_of_neurons=20,
-        network_init_primitive=NetworkInitPrimitive.NormalRandomWeight,
-        network_membrane_potential=-65.0,
-        network_membrane_potential_dev=10.0,
-        network_recovery_variable=-14.0,
-        network_recovery_variable_dev=3.0,
-        connectivity_primitive=ConnectivityPrimitive.ErdosUniform,
-        erdos_connectivity=0.25,
-        erdos_normal_dev=1.0,
-        erdos_normal_mean=0.0,
-        erdos_uniform_lower=0.0,
-        erdos_uniform_upper=1.0,
-        erdos_spectral_radius=0.59,
-        input_primitive=InputPrimitive.AllConnected,
-        input_connectivity_p=0.5,
-        n_drop=0,
-        input_delay=25.0,
+        input_delay=0.0,
         input_bias=0,
         input_scale=10,
-        thalmic_primitive=ThalmicPrimitive.Const,
-        thalmic_mean=0,
-        thalmic_dev=0,
-    ) -> None:
-        variant_chooser = resframe.VariantChooser(
-            network_init_primitive=network_init_primitive,
-            connectivity_primitive=connectivity_primitive,
-            input_primitive=input_primitive,
-            network_membrane_potential=network_membrane_potential,
-            network_membrane_potential_dev=network_membrane_potential_dev,
-            network_recovery_variable=network_recovery_variable,
-            network_recovery_variable_dev=network_recovery_variable_dev,
-            erdos_connectivity=erdos_connectivity,
-            erdos_normal_mean=erdos_normal_mean,
-            erdos_normal_dev=erdos_normal_dev,
-            erdos_uniform_lower=erdos_uniform_lower,
-            erdos_uniform_upper=erdos_uniform_upper,
-            erdos_spectral_radius=erdos_spectral_radius,
-            input_connectivity_p=input_connectivity_p,
-            thalmic_primitive=thalmic_primitive,
-            thalmic_mean=thalmic_mean,
-            thalmic_dev=thalmic_dev,
-        )
-        self.reservoire = resframe.HomogenousReservoire(
-            dt=dt,
-            a=a,
-            b=b,
-            c=c,
-            d=d,
-            number_of_neurons=number_of_neurons,
-            variant_chooser=variant_chooser,
-        )
-        self.times = None
-        self.dt = dt
+        n_drop=0,
+    ):
+        self.reservoire = resframe.HeterogenousReservoire(number_of_neurons, dt)
 
         # representation
         match representation:
@@ -104,6 +48,12 @@ class RCModelHomogenous:
                     f"representation {representation} is not implemented"
                 )
 
+        self.n_drop = n_drop
+        self.bias = input_bias
+        self.input_delay = input_delay
+        self.readout_type = readout
+        self.scale = input_scale
+        self.dt = dt
         # readout
         self.readout_type = readout
         match readout:
@@ -120,10 +70,6 @@ class RCModelHomogenous:
                 )
             case other:
                 raise RuntimeError(f"readout method {other} is not implemented")
-        self.n_drop = n_drop
-        self.input_delay = input_delay
-        self.bias = input_bias
-        self.scale = input_scale
 
     def create_reservoire_input(self, X):
         N, T, _ = X.shape
@@ -157,6 +103,13 @@ class RCModelHomogenous:
             all_states.append(run_states)  # run_states
         self.times = t
         return (t, np.array(all_states))
+
+    def train_readout(self, representation, Y):
+        match self.readout_type:
+            case "lin":
+                self.readout.fit(representation, Y)
+            case "mlp":
+                self.readout.fit(representation, Y)
 
     def _state_repr(self, red_states, X):
         match self.representation:
@@ -219,13 +172,6 @@ class RCModelHomogenous:
                 raise RuntimeError(
                     f"representation: {self.readout_type} not implemented"
                 )
-
-    def train_readout(self, representation, Y):
-        match self.readout_type:
-            case "lin":
-                self.readout.fit(representation, Y)
-            case "mlp":
-                self.readout.fit(representation, Y)
 
     def train(self, Xtrain, Ytrain):
         # Gather all the states

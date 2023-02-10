@@ -42,7 +42,7 @@ mod test {
             input_matrix_setup,
             thalmic_input,
         );
-        let inputs = vec![InputStepHeterogenous::new(10.0, vec![0.5; 20]); 2];
+        let inputs = vec![InputStepHomogenous::new(10.0, vec![0.5; 20]); 2];
         let states = izikevich_model.get_states(inputs);
         log::info!("states: {:#x?}", states);
     }
@@ -50,10 +50,10 @@ mod test {
     #[test]
     fn heterogenous_model() {
         let _ = env_logger::try_init();
-        let mut heterogenous_model = HeterogenousReserviore::new(10, 0.5);
+        let mut heterogenous_model = HeterogenousReserviore::new(10, 0.05);
 
-        let input = vec![InputStepHeterogenous::new(0.5, vec![10.0]); 2000];
+        let input = vec![InputStepHeterogenous::new(1., vec![10.0]); 1];
         let states = heterogenous_model.integrate_network(input);
-        log::info!("states: {:#x?}", states);
+        // log::info!("states: {:#x?}", states);
     }
 }

@@ -4,20 +4,26 @@ use std::{collections::HashMap, ops::Range};
 type NeuronId = usize;
 type InputId = usize;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct NetworkState {
     time: f64,
-    firing_neurons: Vec<NeuronId>,
     membrane_potentials: Vec<f64>,
 }
 
 impl NetworkState {
-    fn new(time: f64, firing_neurons: Vec<NeuronId>, membrane_potentials: Vec<f64>) -> Self {
+    fn new(time: f64, membrane_potentials: Vec<f64>) -> Self {
         Self {
             time,
-            firing_neurons,
             membrane_potentials,
         }
+    }
+
+    pub fn time(&self) -> f64 {
+        self.time
+    }
+
+    pub fn membrane_potentials(&self) -> &[f64] {
+        self.membrane_potentials.as_ref()
     }
 }
 
@@ -65,13 +71,14 @@ impl Neuron {
 
     pub fn integrate(&mut self, input: f64, dt: f64) -> bool {
         // Izikevich model
-        self.v += dt * (0.04 * self.v * self.v + 5.0 * self.v + 140.0 - self.u + input);
-        self.u += dt * self.parameters.a * (self.parameters.b * self.v - self.u);
+        let prev_v = self.v;
+        let prev_u = self.u;
+        self.v += dt * (0.04 * prev_v * prev_v + 5.0 * prev_v + 140.0 - prev_u + input);
+        self.u += dt * self.parameters.a * (self.parameters.b * prev_v - prev_u);
 
         if self.v >= 35.0 {
             self.v = self.parameters.c;
             self.u += self.parameters.d;
-
             true
         } else {
             false
@@ -129,7 +136,7 @@ impl NetworkParameters {
     fn new(dt: f64) -> Self {
         Self {
             dt,
-            input_layer_connectivity: 0.1,
+            input_layer_connectivity: 1.0,
             input_layer_connections: HashMap::new(),
         }
     }
@@ -153,7 +160,7 @@ pub struct HeterogenousReserviore {
 }
 
 impl HeterogenousReserviore {
-    fn number_of_neurons(&self) -> usize {
+    pub fn number_of_neurons(&self) -> usize {
         self.neurons.len()
     }
 
@@ -167,6 +174,10 @@ impl HeterogenousReserviore {
             .and_then(|conn| Some(conn.iter()))
             .or_else(|| Some([].iter()))
             .unwrap()
+    }
+
+    fn membrane_potentials(&self) -> Vec<f64> {
+        self.neurons.iter().map(|neuron| neuron.v).collect()
     }
 
     fn neurons_firing(&mut self, input: Vec<f64>) -> Vec<NeuronId> {
@@ -219,14 +230,13 @@ impl HeterogenousReserviore {
                     for synaptic_conn in self.neuron_targeting(neuron_id) {
                         let target = synaptic_conn.target();
                         let weight = synaptic_conn.weight();
-
                         input[target] += weight;
                     }
                 }
             }
 
             firing_neurons = self.neurons_firing(input);
-            input_step_firings.push(NetworkState::new(time, firing_neurons.clone(), vec![]));
+            input_step_firings.push(NetworkState::new(time, self.membrane_potentials()));
 
             input = vec![0_f64; self.number_of_neurons()];
             time += self.network_parameters.dt;
@@ -264,6 +274,7 @@ impl HeterogenousReserviore {
             (time, firing_neurons) =
                 self.integrate_network_input_step(input, time, firing_neurons, &mut state_collector)
         }
+
         state_collector
     }
 
