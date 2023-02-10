@@ -104,7 +104,7 @@ def search_for_param(input_params):
 
     number_of_neurons = 100
 
-    rc_model = resframe.RCModel(
+    rc_model = resframe.RCModelHeterogenous(
         dt=1,
         number_of_neurons=number_of_neurons,
         **input_params["reservoire_parameters"],

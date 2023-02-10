@@ -21,13 +21,13 @@ mod test {
 
         let connectivity_graph = ConnectivitySetUpType::ErdosZeroOne(1.0);
         let input_matrix_setup = InputMatrixSetUp::PercentageConnected { connectivity: 0.3 };
-
         let network_initialization = NetworkInit::NormalWeight {
             membrane_potential: -65.0,
             recovery_variable: -14.0,
             membrane_potential_deviation: 10.0,
             recovery_variable_deviation: 3.0,
         };
+
         let thalmic_input = ThalmicInput::Const(10.0);
         let izikevich_model = IzhikevichModel::new(
             a,
@@ -42,7 +42,7 @@ mod test {
             input_matrix_setup,
             thalmic_input,
         );
-        let inputs = vec![InputStepHomogenous::new(10.0, vec![0.5; 20]); 2];
+        let inputs = vec![InputStepHeterogenous::new(10.0, vec![0.5; 20]); 2];
         let states = izikevich_model.get_states(inputs);
         log::info!("states: {:#x?}", states);
     }

@@ -6,7 +6,7 @@ use reservoire::izikevich_model::{
 };
 
 #[pyclass]
-pub struct Reservoire {
+pub struct HomogenousReservoire {
     reservoire: IzhikevichModel,
 }
 
@@ -203,7 +203,7 @@ impl VariantChooser {
 }
 
 #[pymethods]
-impl Reservoire {
+impl HomogenousReservoire {
     #[new]
     #[args(
         a = "0.02",

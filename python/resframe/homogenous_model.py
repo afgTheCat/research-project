@@ -24,7 +24,7 @@ def compute_test_scores(pred_class, Yte):
     return accuracy, f1
 
 
-class RCModel:
+class RCModelHeterogenous:
     def __init__(
         self,
         readout="lin",
@@ -78,7 +78,7 @@ class RCModel:
             thalmic_mean=thalmic_mean,
             thalmic_dev=thalmic_dev,
         )
-        self.reservoire = resframe.Reservoire(
+        self.reservoire = resframe.HomogenousReservoire(
             dt=dt,
             a=a,
             b=b,

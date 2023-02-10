@@ -1,20 +1,22 @@
 use pyo3::prelude::*;
 use reservoire::heterogenous_model::InputStepHeterogenous as InputStepRustHeterogenous;
-use reservoire::izikevich_model::InputStepHomogenous as InputStepRust;
+use reservoire::izikevich_model::InputStepHomogenous as InputStepRustHomogenous;
 
 #[pyclass]
 #[derive(Debug, Clone)]
-pub struct InputSteps {
-    pub input_steps: Vec<InputStepRust>,
+pub struct InputStepsHomogenous {
+    pub input_steps: Vec<InputStepRustHomogenous>,
 }
 
 #[pymethods]
-impl InputSteps {
+impl InputStepsHomogenous {
     #[new]
     fn new(input_vals: Vec<(f64, Vec<f64>)>) -> Self {
         let input_steps = input_vals
             .iter()
-            .map(|(duration, input_vals)| InputStepRust::new(*duration, input_vals.clone()))
+            .map(|(duration, input_vals)| {
+                InputStepRustHomogenous::new(*duration, input_vals.clone())
+            })
             .collect::<Vec<_>>();
         Self { input_steps }
     }

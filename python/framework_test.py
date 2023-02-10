@@ -45,7 +45,7 @@ def test_training(thalmic_mean=0):
     data = scipy.io.loadmat("./data/JpVow.mat")
     onehot_encoder = OneHotEncoder(sparse=False)
 
-    rc_model = resframe.RCModel(
+    rc_model = resframe.RCModelHomogenous(
         dt=0.0005,
         a=0.2,
         b=2,
@@ -85,7 +85,7 @@ def neuron_visualize():
     data = scipy.io.loadmat("./data/JpVow.mat")
     Xtrain = data["X"][0:1]
     number_of_neurons = 100
-    rc_model = resframe.RCModel(
+    rc_model = resframe.RCModelHomogenous(
         dt=0.5,
         a=0.2,
         b=2.0,
@@ -113,8 +113,8 @@ def neuron_visualize():
     plt.show()
 
 
-def neuron_with_const_input():
-    rc_model = resframe.RCModel(
+def homogenous_with_const_input():
+    rc_model = resframe.RCModelHeterogenous(
         a=0.02,
         b=0.2,
         c=-65,
@@ -130,15 +130,18 @@ def neuron_with_const_input():
         erdos_uniform_lower=1.0,
         erdos_uniform_upper=1.0,
     )
-    inp = resframe.InputSteps([(1000, [10])])
+    inp = resframe.InputStepsHomogenous([(1000, [10])])
     output = rc_model.reservoire_states([inp])
     inspect_neuron(output, 1)
+
+
+# def heterogenous_with_const_input():
 
 
 if __name__ == "__main__":
     FORMAT = "%(levelname)s %(name)s %(asctime)-15s %(filename)s:%(lineno)d %(message)s"
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.INFO)
-    neuron_with_const_input()
+    homogenous_with_const_input()
     # neuron_visualize()
     # test_training()

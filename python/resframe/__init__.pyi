@@ -47,20 +47,20 @@ class VariantChooser():
                  thalmic_dev = 0.0
     ) -> None: ...
 
-class Reservoire():
-    def __init__(self,
-                 a: Optional[float] = 0.02,
-                 b: Optional[float] = 0.2,
-                 c: Optional[float] = -65.0,
-                 d: Optional[float] = 8.0,
-                 dt: Optional[float] = 0.05,
-                 spike_val: Optional[float] = 35.0,
-                 number_of_neurons: Optional[int] = 10,
-                 variant_chooser: Optional[VariantChooser] = VariantChooser()
-    ) -> None: ...
-    def get_states(self, input: InputSteps) -> Tuple[List[float], List[List[float]]]: ...
+# class Reservoire():
+#     def __init__(self,
+#                  a: Optional[float] = 0.02,
+#                  b: Optional[float] = 0.2,
+#                  c: Optional[float] = -65.0,
+#                  d: Optional[float] = 8.0,
+#                  dt: Optional[float] = 0.05,
+#                  spike_val: Optional[float] = 35.0,
+#                  number_of_neurons: Optional[int] = 10,
+#                  variant_chooser: Optional[VariantChooser] = VariantChooser()
+#     ) -> None: ...
+#     def get_states(self, input: InputSteps) -> Tuple[List[float], List[List[float]]]: ...
 
-class RCModel():
+class RCModelHomogenous():
     def __init__(self,
                  readout = "lin",
                  w_ridge=5,
@@ -97,3 +97,4 @@ class RCModel():
     def reservoire_states_with_times(self, input: List[InputSteps]) -> np.ndarray: ...
     def train(self, input: List[InputSteps], labels) -> None: ...
     def test(self, input: List[InputSteps], labels) -> Tuple[float, float]: ...
+
