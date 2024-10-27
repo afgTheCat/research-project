@@ -1,6 +1,7 @@
 pub mod heterogenous_model;
 mod integration;
 pub mod izikevich_model;
+mod new_model;
 
 #[cfg(test)]
 mod test {
@@ -55,5 +56,10 @@ mod test {
         let input = vec![InputStepHeterogenous::new(1., vec![10.0]); 1];
         let states = heterogenous_model.integrate_network(input);
         // log::info!("states: {:#x?}", states);
+    }
+
+    #[test]
+    fn izikevich_model() {
+        let _ = env_logger::try_init();
     }
 }

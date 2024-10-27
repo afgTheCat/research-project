@@ -1,0 +1,20 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.dependencies]
+# internal
+reservoire = { path = "crates/reservoire" }
+reservoire_extensions = { path = "crates/reservoire_extensions" }
+
+# external
+ode_solvers = "0.3.6"
+rand = "0.8.5"
+rand_distr = "0.4.3"
+either = "1.8.0"
+nalgebra = "0.31.2"
+pyo3 = { version = "0.17.2", features = ["abi3-py37", "extension-module"] }
+pyo3-log = "0.7.0"
+log = "0.4.17"
+plotters = "0.3.7"
+env_logger = "0.9.0"

@@ -4,3 +4,4 @@ reservoire/target
 reservoire/Cargo.lock
 .env
 __pycache__
+target/
