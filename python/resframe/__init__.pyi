@@ -128,3 +128,18 @@ class RCModelHeterogenous():
     def test(self, input: List[InputStepsHomogenous], labels) -> Tuple[float, float]: ...
     
 
+
+class NewModel():
+    def __init__(
+        self,
+        a: List[float],
+        b: List[float],
+        c: List[float],
+        d: List[float],
+        v: List[float],
+        u: List[float],
+        connections: List[List[float]]
+    ) -> None: ...
+    def diffuse(self, input: List[float]) -> List[float]: ...
+    def excite(self, input: List[float], dt: float) -> List[float]: ...
+

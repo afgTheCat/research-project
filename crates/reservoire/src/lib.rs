@@ -1,7 +1,7 @@
 pub mod heterogenous_model;
 mod integration;
 pub mod izikevich_model;
-mod new_model;
+pub mod new_model;
 
 #[cfg(test)]
 mod test {

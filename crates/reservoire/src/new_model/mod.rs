@@ -1,7 +1,8 @@
 use nalgebra::{DMatrix, DVector};
 use std::f64;
 
-struct Model {
+// TODO: multi reservoire setup
+pub struct NewModel {
     pub a: DVector<f64>,
     pub b: DVector<f64>,
     pub c: DVector<f64>,
@@ -11,8 +12,8 @@ struct Model {
     pub connections: DMatrix<f64>,
 }
 
-impl Model {
-    fn new(
+impl NewModel {
+    pub fn new(
         a: DVector<f64>,
         b: DVector<f64>,
         c: DVector<f64>,
@@ -32,13 +33,14 @@ impl Model {
         }
     }
 
-    // dt is in miliseconds
-    fn step(&mut self, mut input: DVector<f64>, dt: f64) -> DVector<f64> {
+    // we basically have to steps: diffuse and excite
+    pub fn diffuse(&mut self, mut input: DVector<f64>) -> DVector<f64> {
         let firings = self
             .v
             .into_iter()
             .enumerate()
-            .filter_map(|(i, v)| (*v > 30.).then(|| i))
+            .filter(|(_, v)| (**v > 30.))
+            .map(|(i, _)| i)
             .collect::<Vec<_>>();
 
         for i in firings {
@@ -46,7 +48,10 @@ impl Model {
             self.u[i] += self.d[i];
             input += self.connections.column(i);
         }
+        input
+    }
 
+    pub fn excite(&mut self, input: DVector<f64>, dt: f64) -> DVector<f64> {
         self.v +=
             dt * ((0.04 * &self.v * &self.v + 5. * &self.v - &self.u + input).add_scalar(140.));
         self.u += dt * &self.a * (&self.b * &self.v - &self.u);
@@ -56,9 +61,9 @@ impl Model {
 
 #[cfg(test)]
 mod test {
-    use super::Model;
+    use super::NewModel;
     use nalgebra::{DMatrix, DVector};
-    use std::{error::Error, fs::File, io, process};
+    use std::fs::File;
 
     const DATA_LOCATION: &str = "../../data/output.csv";
 
@@ -76,12 +81,13 @@ mod test {
         let connections = DMatrix::from_vec(1, 1, vec![0.]);
         let input = DVector::from_vec(vec![15.]);
 
-        let mut model = Model::new(a, b, c, d, v, u, connections);
+        let mut model = NewModel::new(a, b, c, d, v, u, connections);
         let mut voltages = vec![];
 
         // in miliseconds
-        for t in 0..10000 {
-            let voltage = model.step(input.clone(), 1.);
+        for t in 0..500 {
+            let excited_input = model.diffuse(input.clone());
+            let voltage = model.excite(excited_input, 1.);
             voltages.push([t.to_string(), voltage[0].to_string()]);
         }
 

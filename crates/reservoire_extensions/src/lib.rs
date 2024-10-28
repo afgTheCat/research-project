@@ -1,6 +1,7 @@
 mod heterogenous;
 mod homogenous;
 mod input_step;
+mod new_model;
 
 use heterogenous::HeterogenousReservoire;
 use homogenous::{

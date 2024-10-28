@@ -1,7 +1,6 @@
 use crate::input_step::InputStepsHeterogenous;
 use pyo3::prelude::*;
 use reservoire::heterogenous_model::HeterogenousReserviore as HeterogenousReservioreRust;
-use std::iter::repeat_with;
 
 fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
     assert!(!v.is_empty());
